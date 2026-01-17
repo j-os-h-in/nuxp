@@ -46,10 +46,10 @@ export const GlowingEffect = ({
     if (!parent) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-       if (disabled) return;
-       const rect = parent.getBoundingClientRect();
-       mouseX.set(e.clientX - rect.left);
-       mouseY.set(e.clientY - rect.top);
+      if (disabled || !containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      mouseX.set(e.clientX - rect.left);
+      mouseY.set(e.clientY - rect.top);
     };
 
     parent.addEventListener("mousemove", handleMouseMove);

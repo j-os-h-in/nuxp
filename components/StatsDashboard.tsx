@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { Edit3, Save, Lock, ArrowLeft, Eye, Clock } from 'lucide-react';
+import { Edit3, Save, Lock, ArrowLeft, Eye, Clock, LogOut } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { UserProgress, Category, User } from '../types';
 import { ACHIEVEMENTS, CATEGORY_COLORS, TROPHIES } from '../constants';
@@ -93,8 +93,8 @@ export const StatsDashboard: React.FC<Props> = ({
                             </div>
                         </div>
                     ) : (
-                        <h3 className="text-2xl text-white border-b border-white/10 mb-4 pb-2 flex justify-between items-center">
-                            <span className="tracking-wide ml-4">Player Profile</span>
+                        <h3 className="text-2xl text-white border-b border-white/10 mb-4 pb-2 flex justify-center items-center">
+                            <span className="tracking-wide">Player Profile</span>
                         </h3>
                     )}
 
@@ -167,64 +167,106 @@ export const StatsDashboard: React.FC<Props> = ({
                         )}
                     </div>
 
-                    {/* Level Bar */}
-                    <div className="mb-8">
-                        <div className="flex justify-between text-gray-400 text-md mb-1 tracking-widest">
-                            <span>LEVEL {level}</span>
-                            <span>{progress.totalXp} XP</span>
-                        </div>
-                        <div className="w-full bg-black/60 h-8 border border-white/20 relative rounded-sm overflow-hidden">
-                            <div
-                                className="bg-gradient-to-r from-green-600 to-green-500 h-full absolute left-0 top-0 transition-all duration-500"
-                                style={{ width: `${Math.min(100, progress.totalXp % 100)}%` }}
-                            ></div>
-                            <div className="absolute inset-0 flex items-center justify-center text-md text-white drop-shadow-md z-10 font-bold tracking-widest">
-                                {progress.totalXp % 100} / 100
-                            </div>
-                        </div>
+        {/* Level Bar - FLUID ANIMATION UPDATE */}
+        <div className="mb-6">
+            <style>{`
+                @keyframes flow-horizontal {
+                    0% { background-position: 0 0; }
+                    100% { background-position: 20px 0; }
+                }
+                @keyframes bubble-rise {
+                    0% { transform: translateY(10px) scale(0.5); opacity: 0; }
+                    50% { opacity: 0.8; }
+                    100% { transform: translateY(-20px) scale(1.2); opacity: 0; }
+                }
+                .xp-fluid-texture {
+                    background-image: radial-gradient(rgba(255, 255, 255, 0.6) 1px, transparent 1px);
+                    background-size: 10px 10px;
+                    animation: flow-horizontal 3s linear infinite;
+                }
+            `}</style>
+            <div className="flex justify-between text-gray-300 text-sm mb-1">
+                <span>Level {level}</span>
+                <span>{progress.totalXp} XP</span>
+            </div>
+            
+            <div className="w-full bg-black/60 h-8 border-2 border-[#333] relative rounded-sm overflow-hidden shadow-inner">
+                {/* Background Track */}
+                <div className="absolute inset-0 bg-[#111]"></div>
+                
+                {/* Green Fluid Fill */}
+                <div 
+                    className="h-full absolute left-0 top-0 transition-all duration-500 bg-[#33ba02] border-r-2 border-[#83B566] overflow-hidden" 
+                    style={{ width: `${Math.min(100, progress.totalXp % 100)}%` }}
+                >
+                    {/* Liquid Top Highlight */}
+                    <div className="absolute top-0 left-0 w-full h-[2px] bg-[#a3e635] opacity-50"></div>
+
+                    {/* Flowing Texture */}
+                    <div className="absolute inset-0 xp-fluid-texture opacity-30"></div>
+
+                    {/* Bubbles */}
+                    <div className="absolute inset-0 w-full h-full">
+                        {[...Array(8)].map((_, i) => (
+                             <div 
+                                key={i}
+                                className="absolute bg-[#a3e635] rounded-full opacity-60"
+                                style={{
+                                    width: (Math.random() * 4 + 2) + 'px',
+                                    height: (Math.random() * 4 + 2) + 'px',
+                                    left: (Math.random() * 100) + '%',
+                                    bottom: '-5px',
+                                    animation: `bubble-rise ${(Math.random() * 2 + 1.5)}s ease-in infinite`,
+                                    animationDelay: `-${Math.random() * 3}s`
+                                }}
+                             />
+                        ))}
                     </div>
+                </div>
+            </div>
+        </div>
 
-                    {/* Trophy Case */}
-                    <div className="mb-6">
-                        <h4 className="text-mc-gold text-center mb-2 tracking-wider text-lg flex items-center justify-center gap-2">
-                            <span className='text-sm pt-1'>🏆</span> TROPHY CASE
-                        </h4>
-                        <div className="relative group/trophycase rounded-lg">
-                            <GlowingEffect spread={40} glow={true} disabled={false} proximity={64} inactiveZone={0.01} className="group-hover/trophycase:opacity-100" />
-                            <div className="bg-black/40 border-2 border-mc-border p-2 rounded-lg relative z-10">
-                                <div className="grid grid-cols-4 gap-2">
-                                {TROPHIES.map(trophy => {
-                                    const isUnlocked = progress.unlockedTrophies?.includes(trophy.id);
-                                    const Icon = (Icons as any)[trophy.iconName] || Icons.Trophy;
+        {/* Trophy Case */}
+        <div className="mb-6">
+            <h4 className="text-mc-gold text-center mb-2 tracking-wider text-lg flex items-center justify-center gap-2">
+                <span className='text-sm pt-1'>🏆</span> TROPHY CASE
+            </h4>
+            <div className="relative group/case rounded-xl">
+                <GlowingEffect spread={30} glow={true} disabled={false} proximity={30} inactiveZone={0.0} className="group-hover/case:opacity-100 -inset-4 rounded-xl" />
+                <div className="bg-black/40 border-2 border-mc-border p-2 rounded-lg relative z-10">
+                    <div className="grid grid-cols-4 gap-2">
+                        {TROPHIES.map(trophy => {
+                            const isUnlocked = progress.unlockedTrophies?.includes(trophy.id);
+                            const Icon = (Icons as any)[trophy.iconName] || Icons.Trophy;
 
-                                    return (
-                                        <div
-                                            key={trophy.id}
-                                            className={`
-                                    aspect-square relative flex items-center justify-center border-2 rounded-sm group
-                                    ${isUnlocked ? 'bg-white/5 border-white/10' : 'bg-black/60 border-white/5'}
-                                `}
-                                        >
-                                            <Icon
-                                                size={20}
-                                                color={isUnlocked ? trophy.color : '#333'}
-                                                className={`transition-all duration-300 ${isUnlocked ? 'drop-shadow-[0_0_5px_rgba(255,255,255,0.3)]' : 'opacity-30'}`}
-                                            />
+                            return (
+                                <div
+                                    key={trophy.id}
+                                    className={`
+                                        aspect-square relative flex items-center justify-center border-2 rounded-sm group/trophy
+                                        ${isUnlocked ? 'bg-white/5 border-white/10' : 'bg-black/60 border-white/5'}
+                                    `}
+                                >
+                                    <Icon
+                                        size={20}
+                                        color={isUnlocked ? trophy.color : '#333'}
+                                        className={`transition-all duration-300 ${isUnlocked ? 'drop-shadow-[0_0_5px_rgba(255,255,255,0.3)]' : 'opacity-30'}`}
+                                    />
 
-                                            {/* Tooltip */}
-                                            <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-40 bg-black border border-mc-gold text-center p-2 rounded shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                                                <p className={`text-sm font-bold ${isUnlocked ? 'text-white' : 'text-gray-500'}`}>{trophy.title}</p>
-                                                <p className="text-xs text-gray-400 leading-tight mt-1">{isUnlocked ? trophy.description : "???"}</p>
-                                            </div>
+                                    {/* Tooltip */}
+                                    <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-40 bg-black border border-mc-gold text-center p-2 rounded shadow-xl opacity-0 group-hover/trophy:opacity-100 transition-opacity pointer-events-none z-50">
+                                        <p className={`text-sm font-bold ${isUnlocked ? 'text-white' : 'text-gray-500'}`}>{trophy.title}</p>
+                                        <p className="text-xs text-gray-400 leading-tight mt-1">{isUnlocked ? trophy.description : "???"}</p>
+                                    </div>
 
-                                            {!isUnlocked && <Lock size={10} className="absolute top-1 right-1 text-gray-700" />}
-                                        </div>
-                                    )
-                                })}
-                            </div>
-                        </div>
-                        </div>
+                                    {!isUnlocked && <Lock size={10} className="absolute top-1 right-1 text-gray-700" />}
+                                </div>
+                            )
+                        })}
                     </div>
+                </div>
+            </div>
+        </div>
 
                     {/* Stats Chart */}
                     <div className="min-h-[160px] relative bg-black/20 border border-white/5 rounded-lg">

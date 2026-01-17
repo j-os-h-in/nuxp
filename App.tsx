@@ -832,7 +832,7 @@ const App: React.FC = () => {
                         <Package size={20} />
                     </MinecraftButton>
 
-                    <MinecraftButton onClick={() => setShowInventory(true)} className="items-center gap-2 h-13" variant="red">
+                    <MinecraftButton onClick={handleLogout} className="items-center gap-2 h-13" variant="red">
                         <LogOut size={20} />
                     </MinecraftButton>
                 </div>
@@ -890,28 +890,6 @@ const App: React.FC = () => {
                 {/* Map Wrapper with Filters */}
                 <div className="relative flex-1 flex flex-col h-full overflow-hidden">
 
-                    {/* Filter Overlay */}
-                    <div className="absolute top-4 left-0 w-full px-4 z-30 pointer-events-none overflow-x-auto no-scrollbar">
-                        <div className="flex flex-col md:flex-row gap-2 min-w-max pb-2 pointer-events-none">
-                            <MinecraftButton
-                                variant={filterCategory === 'ALL' ? 'green' : 'default'}
-                                onClick={() => setFilterCategory('ALL')}
-                                className="!text-sm !px-3 !py-1.0 pointer-events-auto w-[120px] md:w-auto"
-                            >
-                                ALL
-                            </MinecraftButton>
-                            {Object.values(Category).map(cat => (
-                                <MinecraftButton
-                                    key={cat}
-                                    variant={filterCategory === cat ? 'green' : 'default'}
-                                    onClick={() => setFilterCategory(cat)}
-                                    className="!text-sm md:!text-base !px-3 !py-0.5 w-[120px] pointer-events-auto md:w-auto"
-                                >
-                                    {cat.toUpperCase()}
-                                </MinecraftButton>
-                            ))}
-                        </div>
-                    </div>
 
                     {/* Achievement Search Overlay (Expandable) */}
                     <div className="absolute top-4 right-4 z-30 pointer-events-auto flex items-start gap-2">
@@ -1127,13 +1105,15 @@ const App: React.FC = () => {
 
                         {/* Controls */}
                         <div className="fixed bottom-6 right-6 flex flex-col gap-2 z-30 pointer-events-auto items-end">
-                            <MinecraftButton onClick={handleRecenter} className="w-12 h-12 flex items-center justify-center text-xl bg-black/80 !border-mc-gold hover:!bg-mc-gold/20 mb-4">
-                                <Compass size={24} />
+                            <MinecraftButton onClick={handleRecenter} className="!w-10 !h-10 flex items-center justify-center bg-black/80 !border-mc-gold hover:!bg-mc-gold/20">
+                                <Compass size={20} />
                             </MinecraftButton>
-                            <div className="flex gap-2">
-                                <MinecraftButton onClick={() => handleZoom('out')} className="w-12 h-12 flex items-center justify-center text-xl bg-black/80 !border-mc-gold hover:!bg-mc-gold/20"><Minus size={20} /></MinecraftButton>
-                                <MinecraftButton onClick={() => handleZoom('in')} className="w-12 h-12 flex items-center justify-center text-xl bg-black/80 !border-mc-gold hover:!bg-mc-gold/20"><Plus size={20} /></MinecraftButton>
-                            </div>
+                            <MinecraftButton onClick={() => handleZoom('in')} className="!w-10 !h-10 flex items-center justify-center bg-black/80 !border-mc-gold hover:!bg-mc-gold/20">
+                                <Plus size={18} />
+                            </MinecraftButton>
+                            <MinecraftButton onClick={() => handleZoom('out')} className="!w-10 !h-10 flex items-center justify-center bg-black/80 !border-mc-gold hover:!bg-mc-gold/20">
+                                <Minus size={18} />
+                            </MinecraftButton>
                         </div>
                     </main>
                 </div>
