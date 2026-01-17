@@ -144,8 +144,8 @@ export const LoginModal: React.FC<Props> = ({ onLogin }) => {
         
         {/* Minecraft Logo Style Title */}
         <div className="text-center mb-8 relative">
-            <h1 className="text-6xl text-gray-800 font-bold absolute top-1 left-1 w-full select-none opacity-50">NUS CRAFT</h1>
-            <h1 className="text-6xl text-white font-bold relative z-10 select-none drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">NUS CRAFT</h1>
+            <h1 className="text-6xl text-gray-800 font-bold absolute top-1 left-1 w-full select-none opacity-50">NUXP</h1>
+            <h1 className="text-6xl text-white font-bold relative z-10 select-none drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">NUXP</h1>
             <p className="text-yellow-400 mt-2 animate-bounce text-xl tracking-wider">Surviving the Bell Curve!</p>
         </div>
 
