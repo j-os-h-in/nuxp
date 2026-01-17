@@ -418,7 +418,7 @@ const App: React.FC = () => {
         // 2. Define Category Regions (Galaxy Centers)
         // Spread them out to avoid overlap between categories
         const CATEGORY_CENTERS: Record<string, { x: number, y: number, radius: number, label: string }> = {
-            [Category.GENERAL]: { x: 0, y: 0, radius: 250, label: "STARTING POINT" },
+            [Category.GENERAL]: { x: 0, y: 0, radius: 250, label: "SPAWN POINT" },
             [Category.ACADEMIC]: { x: -600, y: -500, radius: 450, label: "ACADEMIC DISTRICT" },
             [Category.SOCIAL]: { x: 600, y: -500, radius: 450, label: "SOCIAL HUB" },
             [Category.EXPLORATION]: { x: 0, y: 600, radius: 500, label: "THE WILDLANDS" },
@@ -428,7 +428,7 @@ const App: React.FC = () => {
         // Manually customized to ensure no overlap and good distribution around centers
         const HARDCODED_POSITIONS: Record<string, { x: number, y: number }> = {
             // --- GENERAL (Center: 0, 0) ---
-            'nus_start': { x: 0, y: 0 },
+            'nus_start': { x: -40, y: 30 },
 
             // --- ACADEMIC (Center: -600, -500) ---
             'first_lecture': { x: -821, y: -382 },
@@ -896,7 +896,7 @@ const App: React.FC = () => {
                             <MinecraftButton
                                 variant={filterCategory === 'ALL' ? 'green' : 'default'}
                                 onClick={() => setFilterCategory('ALL')}
-                                className="text-sm px-3 py-1 pointer-events-auto w-[120px] md:w-auto"
+                                className="!text-sm !px-3 !py-1.0 pointer-events-auto w-[120px] md:w-auto"
                             >
                                 ALL
                             </MinecraftButton>
@@ -905,7 +905,7 @@ const App: React.FC = () => {
                                     key={cat}
                                     variant={filterCategory === cat ? 'green' : 'default'}
                                     onClick={() => setFilterCategory(cat)}
-                                    className="text-sm md:text-lg px-3 py-1 w-[120px] pointer-events-auto md:w-auto"
+                                    className="!text-sm md:!text-base !px-3 !py-0.5 w-[120px] pointer-events-auto md:w-auto"
                                 >
                                     {cat.toUpperCase()}
                                 </MinecraftButton>
