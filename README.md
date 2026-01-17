@@ -1,5 +1,5 @@
 
-# ⛏️ NUS Craft: Digital Achievements
+# ⛏️ XP NUS: Digital Achievements
 
 > *"Surviving the Bell Curve, one block at an interactive time."*
 
