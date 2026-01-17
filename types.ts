@@ -1,36 +1,21 @@
 export enum AchievementType {
-  ROOT = 'ROOT',
-  TASK = 'TASK',
-  GOAL = 'GOAL',
-  CHALLENGE = 'CHALLENGE',
-  COOP = 'COOP'
-}
-
-// Co-op Invite Status
-export type CoopInviteStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED';
-
-export interface CoopInvite {
-  id: string;
-  achievementId: string;
-  fromUsername: string;
-  fromAvatarUrl: string;
-  toUsername: string;
-  status: CoopInviteStatus;
-  createdAt: number;
-  proof?: AchievementProof;
+  ROOT = "ROOT",
+  TASK = "TASK",
+  GOAL = "GOAL",
+  CHALLENGE = "CHALLENGE",
 }
 
 export enum Category {
-  GENERAL = 'General',
-  ACADEMIC = 'Academic',
-  SOCIAL = 'Social',
-  EXPLORATION = 'Exploration'
+  GENERAL = "General",
+  ACADEMIC = "Academic",
+  SOCIAL = "Social",
+  EXPLORATION = "Exploration",
 }
 
 export interface AchievementResource {
   label: string;
   url: string;
-  type: 'LINK' | 'PDF' | 'TELEGRAM';
+  type: "LINK" | "PDF" | "TELEGRAM";
 }
 
 export interface GuestbookEntry {
@@ -67,7 +52,7 @@ export interface Trophy {
 export interface AchievementProof {
   text?: string;
   media?: string; // Base64
-  mediaType?: 'IMAGE' | 'VIDEO';
+  mediaType?: "IMAGE" | "VIDEO";
   timestamp: number;
 }
 
@@ -82,9 +67,12 @@ export interface UserProgress {
 export interface User {
   username: string;
   avatarUrl: string;
-  createdAt: number;
-  isCustomAvatar?: boolean;
   bio?: string;
   year?: number;
-  semester?: number;
+  degree?: string;
+  total_xp?: number;
+  unlocked_ids?: string[];
+  unlocked_trophies?: string[];
+  createdAt: number;
+  updatedAt: number;
 }
