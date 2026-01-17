@@ -259,13 +259,13 @@ export const LoginModal: React.FC<Props> = ({ onLogin }) => {
                             <div className="relative group cursor-pointer">
                                 {/* Student on top */}
                                 <img
-                                    src="public/student.gif"
+                                    src="/student.gif"
                                     alt="Mascot Waving"
                                     className="relative z-10"
                                 />
                                 {/* Another quackers on the right side */}
                                 <img
-                                    src="public/quackers.png"
+                                    src="/quackers.png"
                                     alt="Quackers"
                                     className="absolute top-20 left-40 h-8 w-8 sm:h-14 sm:w-14 transition-all duration-700 
                                     rotate-45
