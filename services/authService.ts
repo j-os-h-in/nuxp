@@ -1,10 +1,12 @@
 import { User, UserProgress } from '../types';
 import { createClient } from '../src/lib/supabase/client';
 
-const supabase = createClient();
+// Only create Supabase client if env vars are set
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabase = supabaseUrl ? createClient() : null;
 
 /**
- * AUTH SERVICE - Using Supabase
+ * AUTH SERVICE - Uses localStorage with optional Supabase sync
  */
 
 const STORAGE_KEY_USER = 'nus_mc_user';
@@ -52,23 +54,25 @@ export const updateUserBio = async (username: string, bio: string): Promise<User
 export const saveUserProgress = async (username: string, progress: UserProgress): Promise<boolean> => {
     localStorage.setItem(STORAGE_KEY_DATA + username, JSON.stringify(progress));
     
-    // Try to sync with Supabase if user is authenticated
-    try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-            await supabase
-                .from('user_progress')
-                .upsert({ 
-                    user_id: user.id, 
-                    unlocked_ids: progress.unlockedIds, 
-                    total_xp: progress.totalXp,
-                    proofs: progress.proofs,
-                    unlocked_trophies: progress.unlockedTrophies,
-                    updated_at: new Date()
-                });
+    // Try to sync with Supabase if available and user is authenticated
+    if (supabase) {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                await supabase
+                    .from('user_progress')
+                    .upsert({ 
+                        user_id: user.id, 
+                        unlocked_ids: progress.unlockedIds, 
+                        total_xp: progress.totalXp,
+                        proofs: progress.proofs,
+                        unlocked_trophies: progress.unlockedTrophies,
+                        updated_at: new Date()
+                    });
+            }
+        } catch (e) {
+            console.log('Supabase sync skipped (offline or not logged in)');
         }
-    } catch (e) {
-        console.log('Supabase sync skipped (offline or not logged in)');
     }
     
     console.log(`[Database] Saved progress for ${username}`);
@@ -77,27 +81,29 @@ export const saveUserProgress = async (username: string, progress: UserProgress)
 
 // Load Progress
 export const loadUserProgress = async (username: string): Promise<UserProgress | null> => {
-    // Try Supabase first
-    try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-            const { data, error } = await supabase
-                .from('user_progress')
-                .select('*')
-                .eq('user_id', user.id)
-                .single();
-            
-            if (data && !error) {
-                return {
-                    unlockedIds: data.unlocked_ids || [],
-                    totalXp: data.total_xp || 0,
-                    unlockedTrophies: data.unlocked_trophies || [],
-                    proofs: data.proofs || {}
-                };
+    // Try Supabase first if available
+    if (supabase) {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data, error } = await supabase
+                    .from('user_progress')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .single();
+                
+                if (data && !error) {
+                    return {
+                        unlockedIds: data.unlocked_ids || [],
+                        totalXp: data.total_xp || 0,
+                        unlockedTrophies: data.unlocked_trophies || [],
+                        proofs: data.proofs || {}
+                    };
+                }
             }
+        } catch (e) {
+            console.log('Supabase load failed, using localStorage');
         }
-    } catch (e) {
-        console.log('Supabase load failed, using localStorage');
     }
     
     // Fallback to localStorage
@@ -110,10 +116,12 @@ export const loadUserProgress = async (username: string): Promise<UserProgress |
 
 export const logoutUser = async () => {
     localStorage.removeItem(STORAGE_KEY_USER);
-    try {
-        await supabase.auth.signOut();
-    } catch (e) {
-        // Ignore if not logged in with Supabase
+    if (supabase) {
+        try {
+            await supabase.auth.signOut();
+        } catch (e) {
+            // Ignore if not logged in with Supabase
+        }
     }
 };
 
