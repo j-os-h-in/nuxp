@@ -3,6 +3,21 @@ export enum AchievementType {
   TASK = "TASK",
   GOAL = "GOAL",
   CHALLENGE = "CHALLENGE",
+  COOP = "COOP",
+}
+
+// Co-op Invite Status
+export type CoopInviteStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED';
+
+export interface CoopInvite {
+  id: string;
+  achievementId: string;
+  fromUsername: string;
+  fromAvatarUrl: string;
+  toUsername: string;
+  status: CoopInviteStatus;
+  createdAt: number;
+  proof?: AchievementProof;
 }
 
 export enum Category {
@@ -69,10 +84,12 @@ export interface User {
   avatarUrl: string;
   bio?: string;
   year?: number;
+  semester?: number;
   degree?: string;
   total_xp?: number;
   unlocked_ids?: string[];
   unlocked_trophies?: string[];
   createdAt: number;
   updatedAt: number;
+  isCustomAvatar?: boolean;
 }

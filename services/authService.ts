@@ -26,6 +26,7 @@ export const loginUser = async (
     username,
     avatarUrl,
     createdAt: Date.now(),
+    updatedAt: Date.now(),
     isCustomAvatar: isCustom,
   };
   localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
@@ -257,6 +258,7 @@ export const getOtherUserProfile = async (
           year: profile.year || 1,
           semester: profile.semester || 1,
           createdAt: new Date(profile.created_at).getTime(),
+          updatedAt: new Date(profile.created_at).getTime(),
         };
 
         const progress: UserProgress = {
@@ -308,6 +310,7 @@ export const searchUsers = async (query: string): Promise<User[]> => {
             username: profile.username,
             avatarUrl: profile.avatar_url || "/avatars/steve.png",
             createdAt: new Date(profile.created_at).getTime(),
+            updatedAt: new Date(profile.created_at).getTime(),
           });
         }
       }
