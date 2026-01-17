@@ -12,6 +12,11 @@ import { getPersonalizedTip } from './services/geminiService';
 import { LoginModal } from './components/LoginModal';
 import { loginUser, loadUserProgress, saveUserProgress, getStoredUser, logoutUser, updateUserAvatar, updateUserBio, getOtherUserProfile } from './services/authService';
 import { DottedGlowBackground } from './components/ui/dotted-glow-background';
+import { createClient } from './src/lib/supabase/client';
+
+// Create supabase client if env vars exist
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabase = supabaseUrl ? createClient() : null;
 
 const App: React.FC = () => {
   // --- Auth State ---
@@ -47,15 +52,57 @@ const App: React.FC = () => {
   
   // 1. Check for existing session on mount
   useEffect(() => {
-    const checkSession = () => {
+    const checkSession = async () => {
+        // First check localStorage (for guest users or existing sessions)
         const storedUser = getStoredUser();
         if (storedUser) {
             handlePostLogin(storedUser);
-        } else {
-            setIsAuthLoading(false);
+            return;
         }
+        
+        // Then check Supabase session (for authenticated users)
+        if (supabase) {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+                const username = session.user.user_metadata?.username || session.user.email?.split('@')[0] || 'Player';
+                const avatarUrl = session.user.user_metadata?.avatarUrl || '/avatars/steve.png';
+                const user: User = {
+                    username,
+                    avatarUrl,
+                    createdAt: Date.now()
+                };
+                localStorage.setItem('nus_mc_user', JSON.stringify(user));
+                handlePostLogin(user);
+                return;
+            }
+        }
+        
+        setIsAuthLoading(false);
     };
+    
     checkSession();
+    
+    // Listen for Supabase auth changes
+    if (supabase) {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            if (event === 'SIGNED_IN' && session?.user) {
+                const username = session.user.user_metadata?.username || session.user.email?.split('@')[0] || 'Player';
+                const avatarUrl = session.user.user_metadata?.avatarUrl || '/avatars/steve.png';
+                const user: User = {
+                    username,
+                    avatarUrl,
+                    createdAt: Date.now()
+                };
+                localStorage.setItem('nus_mc_user', JSON.stringify(user));
+                handlePostLogin(user);
+            } else if (event === 'SIGNED_OUT') {
+                setUser(null);
+                localStorage.removeItem('nus_mc_user');
+            }
+        });
+        
+        return () => subscription.unsubscribe();
+    }
   }, []);
 
   // 2. Load Data when User is set

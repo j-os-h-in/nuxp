@@ -1,14 +1,22 @@
 import React, { useState, useRef } from 'react';
-import { Upload } from 'lucide-react';
+import { Upload, Mail, Lock, User } from 'lucide-react';
 import { MinecraftButton } from './MinecraftButton';
 import { PixelatedCanvas } from './ui/pixelated-canvas';
 import { AVATARS } from '../constants';
+import { createClient } from '../src/lib/supabase/client';
+
+// Only create Supabase client if env vars are set
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabase = supabaseUrl ? createClient() : null;
 
 interface Props {
   onLogin: (username: string, avatarUrl: string, isCustomAvatar: boolean) => void;
 }
 
 export const LoginModal: React.FC<Props> = ({ onLogin }) => {
+  const [mode, setMode] = useState<'login' | 'signup' | 'guest'>(supabase ? 'login' : 'guest');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
   const [selectedAvatar, setSelectedAvatar] = useState(AVATARS[0]);
   const [isCustom, setIsCustom] = useState(false);
@@ -18,7 +26,73 @@ export const LoginModal: React.FC<Props> = ({ onLogin }) => {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSupabaseAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    
+    if (!supabase) {
+      setError('Supabase not configured. Please use guest mode.');
+      setIsShaking(true);
+      setTimeout(() => setIsShaking(false), 500);
+      return;
+    }
+    
+    if (!email.trim() || !password.trim()) {
+      setError('Please enter email and password');
+      setIsShaking(true);
+      setTimeout(() => setIsShaking(false), 500);
+      return;
+    }
+
+    if (mode === 'signup' && !username.trim()) {
+      setError('Please enter a username');
+      setIsShaking(true);
+      setTimeout(() => setIsShaking(false), 500);
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      if (mode === 'signup') {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              username: username,
+              avatar_url: selectedAvatar
+            }
+          }
+        });
+        
+        if (error) throw error;
+        if (data.user) {
+          onLogin(username, selectedAvatar, isCustom);
+        }
+      } else {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        });
+        
+        if (error) throw error;
+        if (data.user) {
+          const displayName = data.user.user_metadata?.username || email.split('@')[0];
+          const avatarUrl = data.user.user_metadata?.avatar_url || selectedAvatar;
+          onLogin(displayName, avatarUrl, false);
+        }
+      }
+    } catch (err: any) {
+      setError(err.message || 'Authentication failed');
+      setIsShaking(true);
+      setTimeout(() => setIsShaking(false), 500);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGuestLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     
@@ -76,7 +150,37 @@ export const LoginModal: React.FC<Props> = ({ onLogin }) => {
         </div>
 
         <div className="bg-slate-900/80 backdrop-blur-md border border-white/20 p-8 shadow-[0_0_30px_rgba(0,0,0,0.5)] rounded-lg">
-            <form onSubmit={handleSubmit} className="space-y-6">
+            
+            {/* Mode Tabs */}
+            <div className="flex mb-6 bg-black/40 rounded-lg p-1">
+              {supabase && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => { setMode('login'); setError(''); }}
+                    className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${mode === 'login' ? 'bg-mc-gold text-black' : 'text-gray-400 hover:text-white'}`}
+                  >
+                    LOGIN
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setMode('signup'); setError(''); }}
+                    className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${mode === 'signup' ? 'bg-mc-gold text-black' : 'text-gray-400 hover:text-white'}`}
+                  >
+                    SIGN UP
+                  </button>
+                </>
+              )}
+              <button
+                type="button"
+                onClick={() => { setMode('guest'); setError(''); }}
+                className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${mode === 'guest' ? 'bg-mc-gold text-black' : 'text-gray-400 hover:text-white'}`}
+              >
+                GUEST
+              </button>
+            </div>
+
+            <form onSubmit={mode === 'guest' ? handleGuestLogin : handleSupabaseAuth} className="space-y-6">
                 
                 {/* Avatar Selection */}
                 <div className="flex flex-col items-center gap-4">
@@ -133,9 +237,42 @@ export const LoginModal: React.FC<Props> = ({ onLogin }) => {
                     </div>
                 </div>
 
-                {/* Username Input */}
+                {/* Email & Password (for login/signup modes) */}
+                {mode !== 'guest' && (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-gray-300 mb-2 text-lg tracking-wide flex items-center gap-2">
+                        <Mail size={16} /> Email
+                      </label>
+                      <input 
+                        type="email" 
+                        value={email}
+                        onChange={(e) => { setEmail(e.target.value); if (error) setError(''); }}
+                        className="w-full bg-black/50 text-white border border-gray-700 p-3 text-lg focus:outline-none focus:border-mc-gold placeholder-gray-600 rounded"
+                        placeholder="steve@nus.edu.sg"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-300 mb-2 text-lg tracking-wide flex items-center gap-2">
+                        <Lock size={16} /> Password
+                      </label>
+                      <input 
+                        type="password" 
+                        value={password}
+                        onChange={(e) => { setPassword(e.target.value); if (error) setError(''); }}
+                        className="w-full bg-black/50 text-white border border-gray-700 p-3 text-lg focus:outline-none focus:border-mc-gold placeholder-gray-600 rounded"
+                        placeholder="••••••••"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Username Input (for signup and guest modes) */}
+                {(mode === 'signup' || mode === 'guest') && (
                 <div>
-                    <label className="block text-gray-300 mb-2 text-xl tracking-wide">Username</label>
+                    <label className="block text-gray-300 mb-2 text-lg tracking-wide flex items-center gap-2">
+                      <User size={16} /> Username
+                    </label>
                     <input 
                         type="text" 
                         value={username}
@@ -143,23 +280,35 @@ export const LoginModal: React.FC<Props> = ({ onLogin }) => {
                             setUsername(e.target.value);
                             if (error) setError('');
                         }}
-                        className={`w-full bg-black/50 text-white border p-3 font-pixel text-xl focus:outline-none placeholder-gray-600 rounded ${error ? 'border-red-500 animate-pulse' : 'border-gray-700 focus:border-white/50'}`}
+                        className={`w-full bg-black/50 text-white border p-3 text-lg focus:outline-none placeholder-gray-600 rounded ${error ? 'border-red-500 animate-pulse' : 'border-gray-700 focus:border-mc-gold'}`}
                         placeholder="Steve"
                         maxLength={12}
                     />
-                     {error && <p className="text-red-400 mt-1 text-lg">{error}</p>}
                 </div>
+                )}
+
+                {error && <p className="text-red-400 text-lg text-center">{error}</p>}
 
                 <div style={{ animation: isShaking ? 'shake 0.5s cubic-bezier(.36,.07,.19,.97) both' : 'none' }}>
                     <MinecraftButton 
                         type="submit" 
                         className="w-full h-14 text-2xl shadow-lg"
-                        variant={loading ? 'disabled' : 'default'}
+                        variant={loading ? 'disabled' : 'green'}
                         disabled={loading}
                     >
-                        {loading ? 'CONNECTING...' : 'ENTER WORLD'}
+                        {loading ? 'CONNECTING...' : (
+                          mode === 'login' ? 'LOGIN' : 
+                          mode === 'signup' ? 'CREATE ACCOUNT' : 
+                          'PLAY AS GUEST'
+                        )}
                     </MinecraftButton>
                 </div>
+
+                {mode === 'guest' && (
+                  <p className="text-gray-500 text-sm text-center">
+                    Guest progress is saved locally only. Create an account to sync across devices!
+                  </p>
+                )}
             </form>
         </div>
       </div>
