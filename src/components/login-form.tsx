@@ -11,8 +11,9 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { MinecraftButton } from '@/components/MinecraftButton'
 
-export function LoginForm({ className, ...props }: React.ComponentPropsWithoutRef<'div'>) {
+export function LoginForm({ className, onToggleView, ...props }: React.ComponentPropsWithoutRef<'div'> & { onToggleView?: () => void }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -42,18 +43,20 @@ export function LoginForm({ className, ...props }: React.ComponentPropsWithoutRe
     <div className={cn('flex flex-col gap-6', className)} {...props}>
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl">Login</CardTitle>
-          <CardDescription>Enter your email below to login to your account</CardDescription>
+          <CardTitle className="text-3xl">Login</CardTitle>
+          <CardDescription className="text-xl">Sign in to your existing account here.</CardDescription>
+
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin}>
             <div className="flex flex-col gap-6">
               <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
+                <Label className="text-2xl" htmlFor="email">Email</Label>
                 <Input
                   id="email"
                   type="email"
-                  placeholder="m@example.com"
+                  className="text-xl"
+                  placeholder="quackers@u.nus.edu"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -61,26 +64,32 @@ export function LoginForm({ className, ...props }: React.ComponentPropsWithoutRe
               </div>
               <div className="grid gap-2">
                 <div className="flex items-center">
-                  <Label htmlFor="password">Password</Label>
+                  <Label className="text-2xl" htmlFor="password">Password</Label>
                 </div>
                 <Input
                   id="password"
                   type="password"
+                  className="text-xl"
+                  placeholder="quackers secret password!"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
               </div>
               {error && <p className="text-sm text-red-500">{error}</p>}
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <MinecraftButton type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? 'Logging in...' : 'Login'}
-              </Button>
+              </MinecraftButton>
             </div>
-            <div className="mt-4 text-center text-sm">
+            <div className="mt-4 text-center text-lg">
               Don&apos;t have an account?{' '}
-              <a href="/sign-up" className="underline underline-offset-4">
+              <button
+                type="button"
+                onClick={onToggleView}
+                className="underline underline-offset-4 hover:text-primary"
+              >
                 Sign up
-              </a>
+              </button>
             </div>
           </form>
         </CardContent>

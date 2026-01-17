@@ -1,3 +1,4 @@
+import React, { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -10,9 +11,9 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { useState } from 'react'
+import { MinecraftButton } from './MinecraftButton'
 
-export function SignUpForm({ className, ...props }: React.ComponentPropsWithoutRef<'div'>) {
+export function SignUpForm({ className, onToggleView, ...props }: React.ComponentPropsWithoutRef<'div'> & { onToggleView?: () => void }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [repeatPassword, setRepeatPassword] = useState('')
@@ -63,18 +64,19 @@ export function SignUpForm({ className, ...props }: React.ComponentPropsWithoutR
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle className="text-2xl">Sign up</CardTitle>
-            <CardDescription>Create a new account</CardDescription>
+            <CardTitle className="text-3xl">Sign up</CardTitle>
+            <CardDescription className="text-xl">Create a new account here.</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSignUp}>
               <div className="flex flex-col gap-6">
                 <div className="grid gap-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label className="text-2xl" htmlFor="email">Email</Label>
                   <Input
                     id="email"
                     type="email"
-                    placeholder="m@example.com"
+                    placeholder="quackers@u.nus.edu"
+                    className="text-xl"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -82,11 +84,14 @@ export function SignUpForm({ className, ...props }: React.ComponentPropsWithoutR
                 </div>
                 <div className="grid gap-2">
                   <div className="flex items-center">
-                    <Label htmlFor="password">Password</Label>
+                    <Label
+                      className="text-2xl" htmlFor="password">Password</Label>
                   </div>
                   <Input
                     id="password"
                     type="password"
+                    className="text-xl"
+                    placeholder="quackers secret password!"
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -94,7 +99,8 @@ export function SignUpForm({ className, ...props }: React.ComponentPropsWithoutR
                 </div>
                 <div className="grid gap-2">
                   <div className="flex items-center">
-                    <Label htmlFor="repeat-password">Repeat Password</Label>
+                    <Label
+                      className="text-2xl" htmlFor="repeat-password">Repeat Password</Label>
                   </div>
                   <Input
                     id="repeat-password"
@@ -102,18 +108,24 @@ export function SignUpForm({ className, ...props }: React.ComponentPropsWithoutR
                     required
                     value={repeatPassword}
                     onChange={(e) => setRepeatPassword(e.target.value)}
+                    className="text-xl"
+                    placeholder="quackers secret password!"
                   />
                 </div>
                 {error && <p className="text-sm text-red-500">{error}</p>}
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? 'Creating an account...' : 'Sign up'}
-                </Button>
+                <MinecraftButton type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? 'Creating an account...' : 'Sign Up'}
+                </MinecraftButton>
               </div>
-              <div className="mt-4 text-center text-sm">
+              <div className="mt-4 text-center text-lg">
                 Already have an account?{' '}
-                <a href="/login" className="underline underline-offset-4">
+                <button
+                  type="button"
+                  onClick={onToggleView}
+                  className="underline underline-offset-4 hover:text-primary"
+                >
                   Login
-                </a>
+                </button>
               </div>
             </form>
           </CardContent>

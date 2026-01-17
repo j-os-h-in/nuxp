@@ -4,9 +4,10 @@ import { AchievementIcon } from './components/AchievementIcon';
 import { AchievementModal } from './components/AchievementModal';
 import { StatsDashboard } from './components/StatsDashboard';
 import { UserProgress, Achievement, User, Category } from './types';
-import { MinecraftButton } from './components/MinecraftButton';
+import { MinecraftButton } from './src/components/MinecraftButton';
 import { getPersonalizedTip } from './services/geminiService';
 import { LoginForm } from './src/components/login-form';
+import { SignUpForm } from './src/components/sign-up-form';
 import { loginUser, loadUserProgress, saveUserProgress, getStoredUser, logoutUser, updateUserAvatar } from './services/authService';
 import { createClient } from './src/lib/supabase/client';
 
@@ -16,6 +17,7 @@ const App: React.FC = () => {
     // --- Auth State ---
     const [user, setUser] = useState<User | null>(null);
     const [isAuthLoading, setIsAuthLoading] = useState(true);
+    const [authView, setAuthView] = useState<'login' | 'signup'>('login');
 
     // --- Game State ---
     const [progress, setProgress] = useState<UserProgress>({ unlockedIds: ['nus_start'], totalXp: 0 });
@@ -106,7 +108,8 @@ const App: React.FC = () => {
         await handlePostLogin(loggedUser);
     };
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
+        await supabase.auth.signOut();
         logoutUser();
         setUser(null);
         setProgress({ unlockedIds: ['nus_start'], totalXp: 0 });
@@ -262,7 +265,7 @@ const App: React.FC = () => {
             <div className="min-h-screen w-full flex items-center justify-center bg-[#252525]">
                 <div className="text-center">
                     <h1 className="text-4xl text-white font-bold mb-4 font-pixel">Loading...</h1>
-                    <div className="animate-pulse text-mc-yellow">Initializing NUS Craft</div>
+                    <div className="animate-pulse text-mc-yellow">Initializing NUS Achievements</div>
                 </div>
             </div>
         );
@@ -273,10 +276,14 @@ const App: React.FC = () => {
             <div className="min-h-screen w-full flex items-center justify-center bg-[#252525] bg-stone bg-repeat">
                 <div className="w-full max-w-md px-4">
                     <div className="text-center mb-8">
-                        <h1 className="text-6xl text-white font-bold drop-shadow-xl font-pixel">NUS CRAFT</h1>
-                        <p className="text-mc-yellow mt-2 text-xl font-pixel">Surviving the Bell Curve!</p>
+                        <h1 className="text-6xl text-white font-bold drop-shadow-xl font-pixel">NUS Achievements</h1>
+                        <p className="text-mc-yellow mt-2 text-3xl font-pixel">Surviving the Bell Curve!</p>
                     </div>
-                    <LoginForm />
+                    {authView === 'login' ? (
+                        <LoginForm onToggleView={() => setAuthView('signup')} />
+                    ) : (
+                        <SignUpForm onToggleView={() => setAuthView('login')} />
+                    )}
                 </div>
             </div>
         );
