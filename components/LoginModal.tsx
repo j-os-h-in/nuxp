@@ -265,15 +265,20 @@ export const LoginModal: React.FC<Props> = ({ onLogin }) => {
                                             src={selectedAvatar}
                                             width={120}
                                             height={120}
-                                            cellSize={5} // Tighter grid for better preview
+                                            cellSize={3}
                                             dotScale={0.9}
                                             shape="square"
-                                            distortionStrength={1.5} // REDUCED from 2 to 1.5
-                                            distortionRadius={50}
-                                            distortionMode="swirl" // Swirl as requested
-                                            sampleAverage={true} // High Quality Resampling
-                                            dropoutStrength={0} // Clean preview, no noise
+                                            interactive={true}
+                                            distortionMode="swirl"
+                                            distortionStrength={3}
+                                            distortionRadius={60}
+                                            sampleAverage={true}
+                                            dropoutStrength={0}
+                                            jitterStrength={1}
+                                            jitterSpeed={4}
                                             followSpeed={0.2}
+                                            tintColor="#FFFFFF"
+                                            tintStrength={0.1}
                                         />
                                     </div>
                                 </div>

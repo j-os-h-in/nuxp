@@ -76,7 +76,7 @@ const App: React.FC = () => {
 
     // --- Viewport State (Infinite Canvas) ---
     const mapContainerRef = useRef<HTMLDivElement>(null);
-    const [scale, setScale] = useState(1);
+    const [scale, setScale] = useState(0.8);
     const [pan, setPan] = useState({ x: 0, y: 0 });
     const [isDragging, setIsDragging] = useState(false);
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 }); // Mouse position at start
@@ -519,13 +519,16 @@ const App: React.FC = () => {
     // --- Center View Logic ---
     const handleRecenter = () => {
         if (mapContainerRef.current) {
+            const defaultScale = 0.5;
+            setScale(defaultScale);
+            
             const { clientWidth, clientHeight } = mapContainerRef.current;
 
             const nodeCenterX = startNodePos.x + 100;
             const nodeCenterY = startNodePos.y + 100;
 
-            const newPanX = (clientWidth / 2) - (nodeCenterX * scale);
-            const newPanY = (clientHeight / 2) - (nodeCenterY * scale);
+            const newPanX = (clientWidth / 2) - (nodeCenterX * defaultScale);
+            const newPanY = (clientHeight / 2) - (nodeCenterY * defaultScale);
 
             setPan({ x: newPanX, y: newPanY });
         }

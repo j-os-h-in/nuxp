@@ -109,17 +109,20 @@ export const StatsDashboard: React.FC<Props> = ({
                                     src={user.avatarUrl}
                                     width={80}
                                     height={80}
-                                    cellSize={4}
-                                    dotScale={0.95}
+                                    cellSize={2}
+                                    dotScale={0.9}
                                     shape="square"
                                     interactive={true}
                                     distortionMode="swirl"
-                                    distortionStrength={1.5}
-                                    distortionRadius={30}
+                                    distortionStrength={3}
+                                    distortionRadius={40}
                                     sampleAverage={true}
                                     dropoutStrength={0}
-                                    jitterStrength={0}
+                                    jitterStrength={1}
+                                    jitterSpeed={4}
                                     followSpeed={0.2}
+                                    tintColor="#FFFFFF"
+                                    tintStrength={0.1}
                                 />
                             ) : (
                                 <div className="w-full h-full bg-gray-900"></div>
