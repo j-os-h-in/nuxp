@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Menu, X, Compass, Plus, Minus } from 'lucide-react'; 
-import { ACHIEVEMENTS } from './constants';
+import { Menu, X, Compass, Plus, Minus, Package, Search } from 'lucide-react'; 
+import { ACHIEVEMENTS, TROPHIES, CATEGORY_COLORS } from './constants';
 import { AchievementIcon } from './components/AchievementIcon';
 import { AchievementModal } from './components/AchievementModal';
 import { StatsDashboard } from './components/StatsDashboard';
-import { UserProgress, Achievement, User, Category } from './types';
+import { ResourcesModal } from './components/ResourcesModal';
+import { UserSearchModal } from './components/UserSearchModal';
+import { UserProgress, Achievement, User, Category, AchievementProof } from './types';
 import { MinecraftButton } from './components/MinecraftButton';
 import { getPersonalizedTip } from './services/geminiService';
 import { LoginModal } from './components/LoginModal';
-import { loginUser, loadUserProgress, saveUserProgress, getStoredUser, logoutUser, updateUserAvatar } from './services/authService';
+import { loginUser, loadUserProgress, saveUserProgress, getStoredUser, logoutUser, updateUserAvatar, updateUserBio, getOtherUserProfile } from './services/authService';
 import { DottedGlowBackground } from './components/ui/dotted-glow-background';
 
 const App: React.FC = () => {
@@ -17,11 +19,19 @@ const App: React.FC = () => {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
 
   // --- Game State ---
-  const [progress, setProgress] = useState<UserProgress>({ unlockedIds: ['nus_start'], totalXp: 0 });
+  const [progress, setProgress] = useState<UserProgress>({ unlockedIds: ['nus_start'], unlockedTrophies: [], totalXp: 0, proofs: {} });
   const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
   const [tip, setTip] = useState<string>("Loading tip...");
   const [filterCategory, setFilterCategory] = useState<Category | 'ALL'>('ALL');
   const [showMobileStats, setShowMobileStats] = useState(false);
+  const [showInventory, setShowInventory] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  
+  // --- Achievement Search State ---
+  const [achievementSearchQuery, setAchievementSearchQuery] = useState('');
+
+  // --- Viewer State (For looking at other profiles) ---
+  const [viewingProfile, setViewingProfile] = useState<{ user: User, progress: UserProgress } | null>(null);
 
   // --- Viewport State (Infinite Canvas) ---
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -31,15 +41,21 @@ const App: React.FC = () => {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 }); // Mouse position at start
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });   // Pan value at start
   const [hasCenteredOnce, setHasCenteredOnce] = useState(false);
+
+  // --- Hover Tooltip State ---
+  const [hoveredProof, setHoveredProof] = useState<{ x: number, y: number, proof: AchievementProof, title: string } | null>(null);
   
   // 1. Check for existing session on mount
   useEffect(() => {
-    const storedUser = getStoredUser();
-    if (storedUser) {
-        handlePostLogin(storedUser);
-    } else {
-        setIsAuthLoading(false);
-    }
+    const checkSession = async () => {
+        const storedUser = await getStoredUser();
+        if (storedUser) {
+            handlePostLogin(storedUser);
+        } else {
+            setIsAuthLoading(false);
+        }
+    };
+    checkSession();
   }, []);
 
   // 2. Load Data when User is set
@@ -49,10 +65,15 @@ const App: React.FC = () => {
       try {
           const savedData = await loadUserProgress(loggedUser.username);
           if (savedData) {
-              setProgress(savedData);
+              // Ensure unlockedTrophies & proofs exists (migration support)
+              setProgress({ 
+                  ...savedData, 
+                  unlockedTrophies: savedData.unlockedTrophies || [],
+                  proofs: savedData.proofs || {}
+              });
           } else {
               // New save for this user
-              setProgress({ unlockedIds: ['nus_start'], totalXp: 0 });
+              setProgress({ unlockedIds: ['nus_start'], unlockedTrophies: [], totalXp: 0, proofs: {} });
           }
       } catch (e) {
           console.error("Failed to load progress", e);
@@ -74,7 +95,8 @@ const App: React.FC = () => {
   const handleLogout = () => {
       logoutUser();
       setUser(null);
-      setProgress({ unlockedIds: ['nus_start'], totalXp: 0 });
+      setProgress({ unlockedIds: ['nus_start'], unlockedTrophies: [], totalXp: 0, proofs: {} });
+      setViewingProfile(null);
       setShowMobileStats(false);
       setHasCenteredOnce(false);
   };
@@ -90,21 +112,111 @@ const App: React.FC = () => {
       }
   };
 
-  const handleUnlock = async (id: string) => {
+  const handleBioUpdate = async (newBio: string) => {
+      if (!user) return;
+      try {
+          const updatedUser = await updateUserBio(user.username, newBio);
+          setUser(updatedUser);
+      } catch (e) {
+          console.error("Failed to update bio", e);
+      }
+  };
+
+  // --- Search & View Logic ---
+  const handleSelectUserToView = async (username: string) => {
+      setShowSearch(false);
+      // If clicking self, just exit view mode
+      if (user && username === user.username) {
+          setViewingProfile(null);
+          return;
+      }
+      try {
+          const data = await getOtherUserProfile(username);
+          setViewingProfile(data);
+          // Auto center on their start
+          handleRecenter();
+      } catch (e) {
+          alert("Failed to load user profile.");
+      }
+  };
+
+  const handleReturnToMyProfile = () => {
+      setViewingProfile(null);
+      handleRecenter();
+  };
+
+  // Determine what data to show (Mine vs Observed)
+  const displayUser = viewingProfile ? viewingProfile.user : user;
+  const displayProgress = viewingProfile ? viewingProfile.progress : progress;
+  const isReadOnly = !!viewingProfile;
+
+  const checkForTrophies = (currentProgress: UserProgress): string[] => {
+      const newTrophies: string[] = [];
+      const { unlockedIds, unlockedTrophies } = currentProgress;
+
+      // Helper for counts
+      const countTotal = unlockedIds.length;
+      
+      const checkCategory = (cat: Category) => {
+          const totalInCat = ACHIEVEMENTS.filter(a => a.category === cat).length;
+          const userInCat = ACHIEVEMENTS.filter(a => a.category === cat && unlockedIds.includes(a.id)).length;
+          return totalInCat > 0 && totalInCat === userInCat;
+      };
+
+      // 1. Starter Trophy
+      if (!unlockedTrophies.includes('trophy_starter') && countTotal >= 3) {
+          newTrophies.push('trophy_starter');
+      }
+
+      // 2. The 67th (Hardcoded request)
+      if (!unlockedTrophies.includes('trophy_67') && countTotal >= 67) {
+          newTrophies.push('trophy_67');
+      }
+
+      // 3. Category Trophies
+      if (!unlockedTrophies.includes('trophy_academic') && checkCategory(Category.ACADEMIC)) {
+          newTrophies.push('trophy_academic');
+      }
+      if (!unlockedTrophies.includes('trophy_explorer') && checkCategory(Category.EXPLORATION)) {
+          newTrophies.push('trophy_explorer');
+      }
+      if (!unlockedTrophies.includes('trophy_social') && checkCategory(Category.SOCIAL)) {
+          newTrophies.push('trophy_social');
+      }
+
+      // 4. Completionist
+      if (!unlockedTrophies.includes('trophy_completionist') && countTotal === ACHIEVEMENTS.length) {
+          newTrophies.push('trophy_completionist');
+      }
+
+      return newTrophies;
+  };
+
+  const handleUnlock = async (id: string, proof?: AchievementProof) => {
+    // Cannot unlock things for other people
+    if (isReadOnly) return;
+
     const achievement = ACHIEVEMENTS.find(a => a.id === id);
     if (!achievement) return;
 
     if (!progress.unlockedIds.includes(id)) {
-        // Only allow unlocking if parent is unlocked (unless it's root)
-        if (achievement.parentId && !progress.unlockedIds.includes(achievement.parentId)) {
-            alert("You must complete the previous achievement first!");
-            return;
-        }
-
-        const newProgress = {
+        // CHANGED: Removed parent strict dependency check based on user request.
+        // Users can now unlock nodes even if parent is locked.
+        
+        let newProgress = {
+            ...progress,
             unlockedIds: [...progress.unlockedIds, id],
-            totalXp: progress.totalXp + achievement.xp
+            totalXp: progress.totalXp + achievement.xp,
+            proofs: proof ? { ...progress.proofs, [id]: proof } : progress.proofs
         };
+
+        // Check for Trophies
+        const newlyUnlockedTrophies = checkForTrophies(newProgress);
+        if (newlyUnlockedTrophies.length > 0) {
+            newProgress.unlockedTrophies = [...newProgress.unlockedTrophies, ...newlyUnlockedTrophies];
+            const trophyNames = newlyUnlockedTrophies.map(tid => TROPHIES.find(t => t.id === tid)?.title).join(", ");
+            alert(`🏆 TROPHY UNLOCKED: ${trophyNames}! Check your profile.`);
+        }
 
         setProgress(newProgress);
         
@@ -113,151 +225,122 @@ const App: React.FC = () => {
             await saveUserProgress(user.username, newProgress);
         }
     }
-    setSelectedAchievement(null);
   };
 
-  // --- Tree Layout Algorithm (Contour-based / Reingold-Tilford inspired) ---
+  const handleUpdateProof = async (id: string, proof: AchievementProof) => {
+    if (isReadOnly) return;
+    
+    let newProgress = {
+        ...progress,
+        proofs: { ...progress.proofs, [id]: proof }
+    };
+    setProgress(newProgress);
+    if (user) {
+        await saveUserProgress(user.username, newProgress);
+    }
+  };
+
+  // --- CITY MAP LAYOUT ALGORITHM ---
   const { nodes, edges, startNodePos } = useMemo(() => {
       // 1. Initialize Nodes Map
       const nodeMap = new Map<string, any>();
       ACHIEVEMENTS.forEach(ach => {
-          nodeMap.set(ach.id, { ...ach, children: [], relY: 0, x: 0, y: 0 });
+          nodeMap.set(ach.id, { ...ach, children: [], x: 0, y: 0, depth: 0 });
       });
 
-      // 2. Build Hierarchy
-      const roots: any[] = [];
+      // 2. Build Hierarchy & Root Identification
+      let rootNode: any = null;
       ACHIEVEMENTS.forEach(ach => {
           const node = nodeMap.get(ach.id);
+          if (ach.type === 'ROOT') rootNode = node; // Explicitly find NUS Start
+          
           if (ach.parentId && nodeMap.has(ach.parentId)) {
               nodeMap.get(ach.parentId).children.push(node);
-          } else {
-              roots.push(node);
           }
       });
 
-      // 3. Layout Configuration
-      const NODE_HEIGHT = 120; // Visual height of node + label
-      const X_GAP = 350;       // Horizontal spacing
-      const Y_GAP = 60;        // Minimum vertical gap between subtrees
-
-      // 4. Contour Calculation (Post-Order Traversal)
-      // Calculates the shape (top/bottom contours) of each subtree and assigns relative Y positions
-      const layoutNode = (node: any): { top: number[], bot: number[] } => {
-          if (node.children.length === 0) {
-              return {
-                  top: [-NODE_HEIGHT / 2],
-                  bot: [NODE_HEIGHT / 2]
-              };
-          }
-
-          const childContours = node.children.map((child: any) => layoutNode(child));
-
-          // Merge children vertically
-          let cumulativeBot: number[] = [];
-          const childYOffsets: number[] = [];
-
-          childContours.forEach((curr, i) => {
-              if (i === 0) {
-                  childYOffsets.push(0);
-                  cumulativeBot = [...curr.bot];
-              } else {
-                  let shift = -Infinity;
-                  
-                  // Calculate required shift to avoid overlap with the cumulative bottom of previous siblings
-                  const overlapDepth = Math.min(cumulativeBot.length, curr.top.length);
-                  
-                  for (let d = 0; d < overlapDepth; d++) {
-                      // Ensure: prevBottom + GAP <= currTop + shift
-                      const required = cumulativeBot[d] - curr.top[d] + Y_GAP;
-                      if (required > shift) shift = required;
-                  }
-                  
-                  // Default gap if no depth overlap (rare, but handles shallow siblings)
-                  if (overlapDepth === 0) {
-                      shift = cumulativeBot[0] - curr.top[0] + Y_GAP;
-                  }
-                  
-                  // Safety Check
-                  if (shift === -Infinity) shift = Y_GAP;
-
-                  childYOffsets.push(shift);
-
-                  // Update cumulative bottom contour
-                  const maxDepth = Math.max(cumulativeBot.length, curr.bot.length);
-                  for (let d = 0; d < maxDepth; d++) {
-                      const oldVal = cumulativeBot[d] ?? -Infinity;
-                      const newVal = (curr.bot[d] ?? -Infinity) + shift;
-                      cumulativeBot[d] = Math.max(oldVal, newVal);
-                  }
-              }
-          });
-
-          // Center parent relative to the block of children
-          const firstChildY = childYOffsets[0];
-          const lastChildY = childYOffsets[childYOffsets.length - 1];
-          const childrenCenter = (firstChildY + lastChildY) / 2;
-
-          // Store relative Y (offset from parent center)
-          node.children.forEach((child: any, i: number) => {
-              child.relY = childYOffsets[i] - childrenCenter;
-          });
-
-          // Construct Parent Contour (Depth 0 is Parent, Depth 1+ is Children)
-          const myTop = [-NODE_HEIGHT / 2];
-          const myBot = [NODE_HEIGHT / 2];
-
-          childContours.forEach((curr, i) => {
-              const offset = node.children[i].relY;
-              
-              // Merge Child Top Contour
-              curr.top.forEach((val, d) => {
-                  const targetD = d + 1;
-                  const absVal = val + offset;
-                  if (myTop[targetD] === undefined || absVal < myTop[targetD]) {
-                      myTop[targetD] = absVal;
-                  }
-              });
-
-              // Merge Child Bottom Contour
-              curr.bot.forEach((val, d) => {
-                  const targetD = d + 1;
-                  const absVal = val + offset;
-                  if (myBot[targetD] === undefined || absVal > myBot[targetD]) {
-                      myBot[targetD] = absVal;
-                  }
-              });
-          });
-
-          return { top: myTop, bot: myBot };
-      };
-
-      // 5. Run Layout
-      roots.forEach(root => layoutNode(root));
-
-      // 6. Assign Absolute Coordinates (Pre-Order Traversal)
-      const finalNodes: any[] = [];
-      const propagateCoordinates = (node: any, currentX: number, currentY: number) => {
-          node.x = currentX;
-          node.y = currentY;
-          finalNodes.push(node);
-          
-          node.children.forEach((child: any) => {
-              propagateCoordinates(child, currentX + X_GAP, currentY + child.relY);
-          });
-      };
-
-      // Start at 0,0 (will be offset later)
-      roots.forEach(root => propagateCoordinates(root, 0, 0));
-
-      // 7. Apply Global Offsets & Edges
-      const INITIAL_OFFSET_X = 500;
-      const INITIAL_OFFSET_Y = 500;
+      // 3. Directional City Layout
+      // General/Root = 0,0
+      // Academic = Up (Negative Y)
+      // Social = Right (Positive X)
+      // Exploration = Left (Negative X)
       
-      finalNodes.forEach(node => {
-          node.x += INITIAL_OFFSET_X;
-          node.y += INITIAL_OFFSET_Y;
-      });
+      const MAIN_AXIS_GAP = 300; // Distance between main nodes
+      const BRANCH_GAP = 200;    // Increased Distance for side branches to prevent overlap
 
+      const placeNodes = (node: any, baseX: number, baseY: number, axis: 'X'|'Y'|'ROOT', direction: number) => {
+          node.x = baseX;
+          node.y = baseY;
+
+          if (node.children.length === 0) return;
+
+          // Process children
+          node.children.forEach((child: any, index: number) => {
+             // Determine category direction if it's the root's direct children
+             let childAxis = axis;
+             let childDir = direction;
+             
+             if (node.id === 'nus_start') {
+                 if (child.category === Category.ACADEMIC) {
+                     childAxis = 'Y';
+                     childDir = -1; // UP
+                 } else if (child.category === Category.SOCIAL) {
+                     childAxis = 'X';
+                     childDir = 1; // RIGHT
+                 } else if (child.category === Category.EXPLORATION) {
+                     childAxis = 'X';
+                     childDir = -1; // LEFT
+                 } else {
+                     childAxis = 'Y';
+                     childDir = 1; // Down (fallback)
+                 }
+             }
+
+             // Determine position
+             let nextX = baseX;
+             let nextY = baseY;
+
+             // Logic: Main children follow the main axis. 
+             // Secondary children branch out perpendicular to avoid straight lines overlap.
+             
+             // Simple alternation for visual "City Block" feel
+             const isMainLine = index === 0; 
+             
+             if (childAxis === 'Y') {
+                 // Moving Vertically
+                 if (isMainLine) {
+                     nextY = baseY + (MAIN_AXIS_GAP * childDir);
+                 } else {
+                     // Branch out horizontally
+                     const sideDir = index % 2 === 0 ? 1 : -1;
+                     const branchOffset = Math.ceil(index / 2) * BRANCH_GAP;
+                     nextX = baseX + (branchOffset * sideDir);
+                     nextY = baseY + (BRANCH_GAP * childDir * 0.5); // Slight forward movement too
+                 }
+             } else {
+                 // Moving Horizontally
+                 if (isMainLine) {
+                     nextX = baseX + (MAIN_AXIS_GAP * childDir);
+                 } else {
+                     // Branch out vertically
+                     const sideDir = index % 2 === 0 ? 1 : -1;
+                     const branchOffset = Math.ceil(index / 2) * BRANCH_GAP;
+                     nextY = baseY + (branchOffset * sideDir);
+                     nextX = baseX + (BRANCH_GAP * childDir * 0.5);
+                 }
+             }
+
+             placeNodes(child, nextX, nextY, childAxis, childDir);
+          });
+      };
+
+      if (rootNode) {
+          placeNodes(rootNode, 0, 0, 'ROOT', 0);
+      }
+
+      const finalNodes = Array.from(nodeMap.values());
+
+      // 4. Edges
       const computedEdges: any[] = [];
       finalNodes.forEach(node => {
           if (node.parentId) {
@@ -276,12 +359,10 @@ const App: React.FC = () => {
           }
       });
 
-      const startNode = finalNodes.find(n => n.id === 'nus_start');
-
       return {
           nodes: finalNodes,
           edges: computedEdges,
-          startNodePos: startNode ? { x: startNode.x, y: startNode.y } : { x: 0, y: 0 }
+          startNodePos: rootNode ? { x: rootNode.x, y: rootNode.y } : { x: 0, y: 0 }
       };
 
   }, []);
@@ -291,11 +372,6 @@ const App: React.FC = () => {
     if (mapContainerRef.current) {
         const { clientWidth, clientHeight } = mapContainerRef.current;
         
-        // We want the startNode to be at the center of the screen
-        // Screen Center = Pan + (NodePos * Scale)
-        // Pan = Screen Center - (NodePos * Scale)
-        
-        // Note: We add offsets for the node's visual center (approx 50px)
         const nodeCenterX = startNodePos.x + 100;
         const nodeCenterY = startNodePos.y + 100;
 
@@ -306,9 +382,36 @@ const App: React.FC = () => {
     }
   };
 
+  const handleCenterOnNode = (nodeId: string) => {
+    const node = nodes.find(n => n.id === nodeId);
+    if (node && mapContainerRef.current) {
+        const { clientWidth, clientHeight } = mapContainerRef.current;
+        
+        // Node coordinates are based on the layout + 100 offset used in rendering
+        const nodeX = node.x + 100;
+        const nodeY = node.y + 100;
+
+        const newPanX = (clientWidth / 2) - (nodeX * scale);
+        const newPanY = (clientHeight / 2) - (nodeY * scale);
+        
+        setPan({ x: newPanX, y: newPanY });
+        setAchievementSearchQuery(''); // Close/Clear search
+        setSelectedAchievement(node); // Open modal
+    }
+  };
+
+  // Filtered Achievements for Search
+  const searchResults = useMemo(() => {
+    if (!achievementSearchQuery) return [];
+    const q = achievementSearchQuery.toLowerCase();
+    return ACHIEVEMENTS.filter(a => 
+        a.title.toLowerCase().includes(q) || 
+        a.description.toLowerCase().includes(q)
+    );
+  }, [achievementSearchQuery]);
+
   // Initial Auto-Center
   useEffect(() => {
-    // We delay slightly to ensure DOM is ready
     const timer = setTimeout(() => {
         if (user && !hasCenteredOnce && mapContainerRef.current) {
             handleRecenter();
@@ -322,23 +425,14 @@ const App: React.FC = () => {
   const handleZoom = (direction: 'in' | 'out') => {
       const factor = direction === 'in' ? 1.2 : 0.8;
       let newScale = scale * factor;
-      // Clamp scale
       newScale = Math.max(0.2, Math.min(3, newScale));
       
-      // Smart Zoom: Keep center of screen at center
       if (mapContainerRef.current) {
         const { clientWidth, clientHeight } = mapContainerRef.current;
-        
-        // Current Center in World Coords
-        // CenterX = (ScreenWidth/2 - PanX) / OldScale
         const centerX = (clientWidth / 2 - pan.x) / scale;
         const centerY = (clientHeight / 2 - pan.y) / scale;
-
-        // New Pan to keep that World Center at Screen Center
-        // NewPanX = ScreenWidth/2 - (CenterX * NewScale)
         const newPanX = (clientWidth / 2) - (centerX * newScale);
         const newPanY = (clientHeight / 2) - (centerY * newScale);
-
         setScale(newScale);
         setPan({ x: newPanX, y: newPanY });
       } else {
@@ -358,16 +452,11 @@ const App: React.FC = () => {
       e.preventDefault();
       const dx = e.clientX - dragStart.x;
       const dy = e.clientY - dragStart.y;
-      setPan({
-          x: panStart.x + dx,
-          y: panStart.y + dy
-      });
+      setPan({ x: panStart.x + dx, y: panStart.y + dy });
   };
 
-  const handleMouseUp = () => {
-      setIsDragging(false);
-  };
-
+  const handleMouseUp = () => { setIsDragging(false); };
+  
   // --- Drag Handlers (Touch) ---
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 1) {
@@ -380,22 +469,15 @@ const App: React.FC = () => {
 
   const handleTouchMove = (e: React.TouchEvent) => {
      if (!isDragging) return;
-     // Prevent pull-to-refresh etc
-     
      if (e.touches.length === 1) {
          const touch = e.touches[0];
          const dx = touch.clientX - dragStart.x;
          const dy = touch.clientY - dragStart.y;
-         setPan({
-            x: panStart.x + dx,
-            y: panStart.y + dy
-         });
+         setPan({ x: panStart.x + dx, y: panStart.y + dy });
      }
   };
 
-  const handleTouchEnd = () => {
-      setIsDragging(false);
-  };
+  const handleTouchEnd = () => { setIsDragging(false); };
 
   // --- RENDER ---
 
@@ -415,19 +497,17 @@ const App: React.FC = () => {
            colorDarkVar="#333"
            glowColorDarkVar="#D4AF37" // Gold glow for NUS theme
         />
-        {/* Radial Vignette */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,#0a0a0a_100%)] pointer-events-none"></div>
       </div>
 
       {/* Header */}
-      <header className="relative z-20 bg-black/60 backdrop-blur-md border-b border-mc-gold/30 p-4 flex justify-between items-center shadow-lg">
+      <header className="relative z-50 bg-black/60 backdrop-blur-md border-b border-mc-gold/30 p-4 flex justify-between items-center shadow-lg">
         <div className="flex items-center gap-4">
-            {/* Mobile Menu Toggle */}
             <button 
-                onClick={() => setShowMobileStats(true)} 
+                onClick={() => setShowMobileStats(!showMobileStats)} 
                 className="lg:hidden text-mc-gold hover:text-white transition-colors"
             >
-                <Menu size={28} />
+                {showMobileStats ? <X size={28} /> : <Menu size={28} />}
             </button>
             
             <div>
@@ -444,8 +524,14 @@ const App: React.FC = () => {
                  <p className="text-xs text-mc-goldDim uppercase tracking-widest">Current Session</p>
                  <p className="text-xl text-gray-200">Year 1, Sem 1</p>
              </div>
-             <MinecraftButton onClick={() => window.open('https://nus.edu.sg', '_blank')} className="hidden sm:block">
-                NUS HOME
+             
+             <MinecraftButton onClick={() => setShowSearch(true)} className="flex items-center gap-2" variant="default">
+                <Search size={20} />
+             </MinecraftButton>
+
+             <MinecraftButton onClick={() => setShowInventory(true)} className="hidden sm:flex items-center gap-2" variant="green">
+                <Package size={20} />
+                INVENTORY
              </MinecraftButton>
         </div>
       </header>
@@ -453,31 +539,32 @@ const App: React.FC = () => {
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden relative z-10">
         
-        {/* Desktop Sidebar */}
-        <aside className="w-80 p-4 hidden lg:block z-20 h-full border-r border-white/5 bg-black/20">
+        {/* Desktop Sidebar with INCREASED Z-INDEX */}
+        <aside className="w-80 p-4 hidden lg:block z-40 h-full border-r border-white/5 relative">
            <StatsDashboard 
-                progress={progress} 
-                user={user} 
+                progress={displayProgress} 
+                user={displayUser} 
                 onLogout={handleLogout} 
                 onUpdateAvatar={handleAvatarUpdate}
+                onUpdateBio={handleBioUpdate}
+                isReadOnly={isReadOnly}
+                onBack={handleReturnToMyProfile}
            />
         </aside>
 
-        {/* Mobile Sidebar (Drawer) */}
+        {/* Mobile Sidebar */}
         {showMobileStats && (
             <div className="fixed inset-0 z-50 lg:hidden">
                 <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowMobileStats(false)}></div>
-                <div className="absolute left-0 top-0 bottom-0 w-80 bg-neutral-900 border-r border-mc-gold p-4 animate-in slide-in-from-left duration-200 shadow-2xl overflow-y-auto">
-                    <div className="flex justify-end mb-2">
-                        <button onClick={() => setShowMobileStats(false)} className="text-gray-400 hover:text-white">
-                            <X size={24} />
-                        </button>
-                    </div>
+                <div className="absolute left-0 top-0 bottom-0 w-80 bg-neutral-900 border-r border-mc-gold p-4 pt-24 animate-in slide-in-from-left duration-200 shadow-2xl overflow-y-auto">
                     <StatsDashboard 
-                        progress={progress} 
-                        user={user} 
+                        progress={displayProgress} 
+                        user={displayUser} 
                         onLogout={handleLogout} 
                         onUpdateAvatar={handleAvatarUpdate}
+                        onUpdateBio={handleBioUpdate}
+                        isReadOnly={isReadOnly}
+                        onBack={handleReturnToMyProfile}
                     />
                 </div>
             </div>
@@ -486,7 +573,7 @@ const App: React.FC = () => {
         {/* Map Wrapper with Filters */}
         <div className="relative flex-1 flex flex-col h-full overflow-hidden">
             
-            {/* Filter Overlay - Scrollable horizontally on mobile */}
+            {/* Filter Overlay */}
             <div className="absolute top-4 left-0 w-full px-4 z-30 pointer-events-auto overflow-x-auto no-scrollbar">
                 <div className="flex gap-2 min-w-max pb-2">
                     <MinecraftButton 
@@ -509,6 +596,93 @@ const App: React.FC = () => {
                 </div>
             </div>
 
+            {/* Achievement Search Overlay (Expandable) */}
+            <div className="absolute top-4 right-4 z-30 pointer-events-auto">
+                <div className="relative group">
+                    <div className={`flex items-center bg-black/80 border-2 rounded-sm p-1 shadow-lg backdrop-blur-sm transition-all duration-300 ${achievementSearchQuery ? 'border-mc-gold w-64' : 'border-white/20 w-10 hover:w-64 focus-within:w-64 overflow-hidden'}`}>
+                            <div className="shrink-0 w-8 h-8 flex items-center justify-center text-gray-400">
+                                <Search size={18} />
+                            </div>
+                            <input 
+                            type="text"
+                            placeholder="Find achievement..."
+                            className="bg-transparent border-none text-white text-sm font-pixel focus:outline-none w-full placeholder-gray-500 ml-1"
+                            value={achievementSearchQuery}
+                            onChange={(e) => setAchievementSearchQuery(e.target.value)}
+                            />
+                            {achievementSearchQuery && (
+                                <button onClick={() => setAchievementSearchQuery('')} className="shrink-0 text-gray-500 hover:text-white px-2">
+                                    <X size={14} />
+                                </button>
+                            )}
+                    </div>
+
+                    {/* Results Dropdown */}
+                    {achievementSearchQuery && (
+                        <div className="absolute top-full right-0 mt-2 w-64 bg-neutral-900 border-2 border-mc-gold/50 shadow-2xl rounded-sm max-h-60 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200">
+                            {searchResults.length === 0 ? (
+                                <div className="p-4 text-gray-500 text-xs text-center italic">No quests found.</div>
+                            ) : (
+                                searchResults.map(ach => (
+                                    <button
+                                        key={ach.id}
+                                        onClick={() => handleCenterOnNode(ach.id)}
+                                        className="w-full text-left p-3 hover:bg-white/10 border-b border-white/5 last:border-0 flex items-center gap-3 transition-colors group/item"
+                                    >
+                                            <div className={`p-1.5 rounded-sm bg-black border border-white/20 group-hover/item:border-mc-gold/50`}>
+                                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[ach.category] }}></div>
+                                            </div>
+                                        <div className="min-w-0">
+                                            <p className="text-white text-sm font-bold truncate group-hover/item:text-mc-gold transition-colors">{ach.title}</p>
+                                            <p className="text-[10px] text-gray-400 truncate uppercase tracking-wider">{ach.category}</p>
+                                        </div>
+                                    </button>
+                                ))
+                            )}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Hover Proof Tooltip - Absolute positioned based on mouse */}
+            {hoveredProof && (
+                <div 
+                    className="fixed z-50 pointer-events-none animate-in fade-in zoom-in-95 duration-200"
+                    style={{ left: hoveredProof.x + 20, top: hoveredProof.y + 20 }}
+                >
+                    <div className="bg-black/90 border-2 border-white p-1 rounded-sm shadow-[5px_5px_0px_rgba(0,0,0,0.5)] w-48">
+                         {/* Header */}
+                         <div className="bg-[#5D8D42] text-white text-[10px] font-bold px-2 py-1 mb-1 tracking-widest uppercase truncate border-b border-green-800">
+                            {hoveredProof.title}
+                         </div>
+                         
+                         {/* Content */}
+                         <div className="p-1 space-y-1">
+                             {hoveredProof.proof.media && hoveredProof.proof.mediaType === 'IMAGE' && (
+                                 <img src={hoveredProof.proof.media} alt="Memory" className="w-full h-24 object-cover rounded border border-white/20" />
+                             )}
+                             {hoveredProof.proof.media && hoveredProof.proof.mediaType === 'VIDEO' && (
+                                 <video 
+                                    src={hoveredProof.proof.media} 
+                                    autoPlay muted loop 
+                                    className="w-full h-24 object-cover rounded border border-white/20" 
+                                 />
+                             )}
+                             {hoveredProof.proof.text && (
+                                 <div className="p-1 text-white italic text-[10px] font-serif leading-tight bg-white/5 rounded">
+                                     "{hoveredProof.proof.text}"
+                                 </div>
+                             )}
+                         </div>
+
+                         {/* Footer Timestamp */}
+                         <div className="mt-1 text-[8px] text-gray-400 text-right pr-1">
+                             {new Date(hoveredProof.proof.timestamp).toLocaleDateString()}
+                         </div>
+                    </div>
+                </div>
+            )}
+
             {/* Canvas (Tree Visualization) */}
             <main 
                 ref={mapContainerRef}
@@ -516,23 +690,18 @@ const App: React.FC = () => {
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseUp}
+                onMouseLeave={() => { handleMouseUp(); setHoveredProof(null); }}
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
             >
-                {/* 
-                    INFINITE CANVAS CONTAINER 
-                    We use CSS transform to move the world.
-                */}
                 <div 
                     className="absolute top-0 left-0 origin-top-left transition-transform duration-75 ease-out will-change-transform"
                     style={{ 
                         transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
                     }}
                 >
-                    
-                    {/* 1. Connections Layer (SVG) */}
+                    {/* 1. Connections Layer */}
                     <svg 
                         className="absolute overflow-visible pointer-events-none"
                         style={{ top: 0, left: 0, width: 1, height: 1 }}
@@ -541,12 +710,12 @@ const App: React.FC = () => {
                             if (filterCategory !== 'ALL' && (edge.sourceCategory !== filterCategory || edge.targetCategory !== filterCategory)) {
                                 return null;
                             }
-
-                            const isSourceUnlocked = progress.unlockedIds.includes(edge.sourceId);
-                            const isTargetUnlocked = progress.unlockedIds.includes(edge.targetId);
+                            const isSourceUnlocked = displayProgress.unlockedIds.includes(edge.sourceId);
+                            const isTargetUnlocked = displayProgress.unlockedIds.includes(edge.targetId);
+                            
+                            // Visual: Only light up Gold if BOTH ends are unlocked
                             const isPathActive = isSourceUnlocked && isTargetUnlocked;
-                            // Show path if parent is unlocked (even if target is not), but dim it
-                            const isPathVisible = isSourceUnlocked; 
+                            const isPathVisible = isSourceUnlocked; // If source is unlocked, we see the path faintly
 
                             const ICON_OFFSET = 40; 
                             const startX = edge.sourceX + 100 + 80; 
@@ -554,9 +723,8 @@ const App: React.FC = () => {
                             const endX = edge.targetX + 100; 
                             const endY = edge.targetY + ICON_OFFSET + 100; 
                             
-                            // Stepped Path (Manhattan)
-                            const midX = (startX + endX) / 2;
-                            const pathData = `M ${startX} ${startY} L ${midX} ${startY} L ${midX} ${endY} L ${endX} ${endY}`;
+                            // Simple Line or L-shape depending on positions to look more like streets
+                            const pathData = `M ${startX} ${startY} L ${endX} ${endY}`;
 
                             return (
                                 <path 
@@ -566,8 +734,7 @@ const App: React.FC = () => {
                                     strokeWidth={isPathActive ? "6" : "3"}
                                     fill="none"
                                     strokeDasharray={isPathActive ? "none" : "10,5"}
-                                    shapeRendering="geometricPrecision"
-                                    className={`transition-all duration-500 ${isPathActive ? 'drop-shadow-[0_0_8px_rgba(212,175,55,0.8)] opacity-100' : (isPathVisible ? 'opacity-30' : 'opacity-10')}`}
+                                    className={`transition-all duration-500 ${isPathActive ? 'drop-shadow-[0_0_8px_rgba(212,175,55,0.8)] opacity-100' : (isPathVisible ? 'opacity-40' : 'opacity-10')}`}
                                 />
                             );
                         })}
@@ -579,21 +746,13 @@ const App: React.FC = () => {
                             return null;
                         }
 
-                        const isUnlocked = progress.unlockedIds.includes(node.id);
-                        const isParentUnlocked = node.parentId ? progress.unlockedIds.includes(node.parentId) : true;
+                        const isUnlocked = displayProgress.unlockedIds.includes(node.id);
                         
-                        // VISIBILITY LOGIC:
-                        // 1. Unlocked: Full opacity, color.
-                        // 2. Parent Unlocked (Ready): Slightly dim, grayscale.
-                        // 3. Parent Locked (Future): Very dim, grayscale, blur.
-                        
+                        // Relaxed Logic: If unlocked, full opacity. If not, just dim.
+                        // We removed the parent dependency check for visibility so users can see "future" nodes easier in this city map
                         let opacityClass = 'opacity-100';
                         if (!isUnlocked) {
-                             if (isParentUnlocked) {
-                                 opacityClass = 'opacity-80 grayscale';
-                             } else {
-                                 opacityClass = 'opacity-30 grayscale blur-[1px]';
-                             }
+                             opacityClass = 'opacity-60 grayscale brightness-75';
                         }
 
                         return (
@@ -611,6 +770,24 @@ const App: React.FC = () => {
                                         e.stopPropagation(); 
                                         setSelectedAchievement(node);
                                     }}
+                                    onMouseEnter={(e) => {
+                                        // Show Proof Tooltip if available
+                                        const proof = displayProgress.proofs?.[node.id];
+                                        if (proof) {
+                                            setHoveredProof({
+                                                x: e.clientX,
+                                                y: e.clientY,
+                                                proof,
+                                                title: node.title
+                                            });
+                                        }
+                                    }}
+                                    onMouseMove={(e) => {
+                                        if (hoveredProof) {
+                                            setHoveredProof(prev => prev ? ({ ...prev, x: e.clientX, y: e.clientY }) : null);
+                                        }
+                                    }}
+                                    onMouseLeave={() => setHoveredProof(null)}
                                 >
                                     <AchievementIcon 
                                         iconName={node.iconName} 
@@ -619,32 +796,26 @@ const App: React.FC = () => {
                                         unlocked={isUnlocked} 
                                         size={32}
                                     />
-                                    <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-black/90 backdrop-blur text-mc-gold px-3 py-1 rounded-md text-xs opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20 border border-mc-gold/50 font-pixel tracking-wide shadow-[0_0_10px_rgba(0,0,0,1)]">
-                                        {node.title}
-                                    </div>
+                                    {/* Default title tooltip (hidden if proof is showing to avoid clutter, or kept for consistency) */}
+                                    {!hoveredProof && (
+                                        <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-black/90 backdrop-blur text-mc-gold px-3 py-1 rounded-md text-xs opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20 border border-mc-gold/50 font-pixel tracking-wide shadow-[0_0_10px_rgba(0,0,0,1)]">
+                                            {node.title}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         );
                     })}
                 </div>
 
-                {/* Controls (Zoom & Center) */}
+                {/* Controls */}
                 <div className="fixed bottom-6 right-6 flex flex-col gap-2 z-30 pointer-events-auto items-end">
-                    <MinecraftButton 
-                        onClick={handleRecenter} 
-                        className="w-12 h-12 flex items-center justify-center text-xl bg-black/80 !border-mc-gold hover:!bg-mc-gold/20 mb-4"
-                        title="Recenter Map"
-                    >
+                    <MinecraftButton onClick={handleRecenter} className="w-12 h-12 flex items-center justify-center text-xl bg-black/80 !border-mc-gold hover:!bg-mc-gold/20 mb-4">
                         <Compass size={24} />
                     </MinecraftButton>
-                    
                     <div className="flex gap-2">
-                        <MinecraftButton onClick={() => handleZoom('out')} className="w-12 h-12 flex items-center justify-center text-xl bg-black/80 !border-mc-gold hover:!bg-mc-gold/20">
-                            <Minus size={20} />
-                        </MinecraftButton>
-                        <MinecraftButton onClick={() => handleZoom('in')} className="w-12 h-12 flex items-center justify-center text-xl bg-black/80 !border-mc-gold hover:!bg-mc-gold/20">
-                            <Plus size={20} />
-                        </MinecraftButton>
+                        <MinecraftButton onClick={() => handleZoom('out')} className="w-12 h-12 flex items-center justify-center text-xl bg-black/80 !border-mc-gold hover:!bg-mc-gold/20"><Minus size={20} /></MinecraftButton>
+                        <MinecraftButton onClick={() => handleZoom('in')} className="w-12 h-12 flex items-center justify-center text-xl bg-black/80 !border-mc-gold hover:!bg-mc-gold/20"><Plus size={20} /></MinecraftButton>
                     </div>
                 </div>
             </main>
@@ -658,12 +829,23 @@ const App: React.FC = () => {
             achievement={selectedAchievement} 
             onClose={() => setSelectedAchievement(null)} 
             status={
-                progress.unlockedIds.includes(selectedAchievement.id) ? 'UNLOCKED' : 
-                (!selectedAchievement.parentId || progress.unlockedIds.includes(selectedAchievement.parentId)) ? 'READY' : 'LOCKED'
+                displayProgress.unlockedIds.includes(selectedAchievement.id) ? 'UNLOCKED' : 'READY'
             }
             onUnlock={handleUnlock}
+            onUpdateProof={handleUpdateProof}
             parentTitle={selectedAchievement.parentId ? ACHIEVEMENTS.find(a => a.id === selectedAchievement.parentId)?.title : undefined}
+            existingProof={displayProgress.proofs?.[selectedAchievement.id]}
         />
+      )}
+
+      {showInventory && <ResourcesModal unlockedIds={displayProgress.unlockedIds} onClose={() => setShowInventory(false)} />}
+
+      {showSearch && user && (
+          <UserSearchModal
+              currentUsername={user.username}
+              onClose={() => setShowSearch(false)}
+              onSelectUser={handleSelectUserToView}
+          />
       )}
     </div>
   );

@@ -3,24 +3,16 @@ import { User, UserProgress } from '../types';
 /**
  * AUTH SERVICE
  * 
- * In a real application, these functions would call your backend API (MongoDB).
- * For this demo, we are mocking the backend using localStorage.
+ * Using LocalStorage as the database.
  */
 
 const STORAGE_KEY_USER = 'nus_mc_user';
 const STORAGE_KEY_DATA = 'nus_mc_data_';
 
 // Mock DB Call: Login or Register
-export const loginUser = async (username: string, avatarUrl: string): Promise<User> => {
+export const loginUser = async (username: string, avatarUrl: string, isCustom: boolean): Promise<User> => {
   // SIMULATE API DELAY
-  await new Promise(resolve => setTimeout(resolve, 800));
-
-  // --- MONGODB IMPLEMENTATION PLAN ---
-  // const response = await fetch('/api/login', {
-  //   method: 'POST',
-  //   body: JSON.stringify({ username, avatarUrl })
-  // });
-  // return await response.json();
+  await new Promise(resolve => setTimeout(500));
   
   // --- LOCALSTORAGE IMPLEMENTATION ---
   const user: User = {
@@ -32,21 +24,11 @@ export const loginUser = async (username: string, avatarUrl: string): Promise<Us
   return user;
 };
 
-// Mock DB Call: Update Avatar
+// Mock DB Call: Update Avatar (with Bio Stub)
 export const updateUserAvatar = async (username: string, avatarUrl: string): Promise<User> => {
-    // --- MONGODB IMPLEMENTATION PLAN ---
-    // const res = await fetch(`/api/users/${username}/avatar`, {
-    //    method: 'PUT',
-    //    body: JSON.stringify({ avatarUrl })
-    // });
-    // return await res.json();
-
-    // --- LOCALSTORAGE IMPLEMENTATION ---
     const data = localStorage.getItem(STORAGE_KEY_USER);
     if (data) {
         const user = JSON.parse(data);
-        // In a real app we'd verify the username matches the session token or similar
-        // Here we just update the stored user if it matches
         if (user.username === username) {
             user.avatarUrl = avatarUrl;
             localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
@@ -56,15 +38,18 @@ export const updateUserAvatar = async (username: string, avatarUrl: string): Pro
     throw new Error("User not found or session invalid");
 };
 
+// Stub for Bio Update
+export const updateUserBio = async (username: string, bio: string): Promise<User> => {
+     // For now just return current user, logic similar to avatar update
+     const data = localStorage.getItem(STORAGE_KEY_USER);
+     if (data) {
+        return JSON.parse(data);
+     }
+     throw new Error("User not found");
+};
+
 // Mock DB Call: Save Progress
 export const saveUserProgress = async (username: string, progress: UserProgress): Promise<boolean> => {
-    // --- MONGODB IMPLEMENTATION PLAN ---
-    // await fetch(`/api/users/${username}/progress`, {
-    //   method: 'PUT',
-    //   body: JSON.stringify(progress)
-    // });
-    
-    // --- LOCALSTORAGE IMPLEMENTATION ---
     localStorage.setItem(STORAGE_KEY_DATA + username, JSON.stringify(progress));
     console.log(`[Database] Saved progress for ${username}`);
     return true;
@@ -72,11 +57,6 @@ export const saveUserProgress = async (username: string, progress: UserProgress)
 
 // Mock DB Call: Load Progress
 export const loadUserProgress = async (username: string): Promise<UserProgress | null> => {
-    // --- MONGODB IMPLEMENTATION PLAN ---
-    // const res = await fetch(`/api/users/${username}/progress`);
-    // return await res.json();
-
-    // --- LOCALSTORAGE IMPLEMENTATION ---
     const data = localStorage.getItem(STORAGE_KEY_DATA + username);
     if (data) {
         return JSON.parse(data);
@@ -84,11 +64,34 @@ export const loadUserProgress = async (username: string): Promise<UserProgress |
     return null;
 };
 
-export const logoutUser = () => {
+export const logoutUser = async () => {
     localStorage.removeItem(STORAGE_KEY_USER);
 };
 
-export const getStoredUser = (): User | null => {
+export const getStoredUser = async (): Promise<User | null> => {
     const data = localStorage.getItem(STORAGE_KEY_USER);
     return data ? JSON.parse(data) : null;
+};
+
+// Stub for User Search
+export const getOtherUserProfile = async (username: string): Promise<{ user: User, progress: UserProgress } | null> => {
+    // Basic local lookup simulation
+    const currentUser = await getStoredUser();
+    if (currentUser && currentUser.username === username) {
+         const prog = await loadUserProgress(username);
+         return { user: currentUser, progress: prog || { unlockedIds: [], proofs: {}, totalXp: 0, unlockedTrophies: [] } };
+    }
+    return null;
+};
+
+// Stub for searchUsers - returns only current user in localStorage mode
+export const searchUsers = async (query: string): Promise<User[]> => {
+    const currentUser = await getStoredUser();
+    if (!currentUser) return [];
+    
+    // In localStorage mode, we can only return the current user
+    if (!query || currentUser.username.toLowerCase().includes(query.toLowerCase())) {
+        return [currentUser];
+    }
+    return [];
 };
