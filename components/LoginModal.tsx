@@ -79,6 +79,16 @@ export const LoginModal: React.FC<Props> = ({ onLogin }) => {
                 });
 
                 if (error) throw error;
+
+                // Check if user already exists (Supabase returns user but with identities empty)
+                if (data.user && !data.user.identities?.length) {
+                    setError('This email is already registered. Please try logging in instead.');
+                    setIsShaking(true);
+                    setTimeout(() => setIsShaking(false), 500);
+                    setLoading(false);
+                    return;
+                }
+
                 if (data.user) {
                     onLogin(username, selectedAvatar, isCustom);
                 }
@@ -373,7 +383,7 @@ export const LoginModal: React.FC<Props> = ({ onLogin }) => {
                             </div>
                         )}
 
-                        {error && <p className="text-red-400 text-lg text-center">{error}</p>}
+                        {error && <p className="text-red-400 text-lg leading-snug text-center">{error}</p>}
 
                         <div style={{ animation: isShaking ? 'shake 0.5s cubic-bezier(.36,.07,.19,.97) both' : 'none' }}>
                             <MinecraftButton
