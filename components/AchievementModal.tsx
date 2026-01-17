@@ -209,8 +209,11 @@ export const AchievementModal: React.FC<Props> = ({ achievement, onClose, status
             
             <div className="flex gap-2">
                 {isEditMode ? (
-                     <MinecraftButton onClick={handleUpdate} variant="green" className="w-full flex justify-center items-center gap-2">
-                        <Save size={16} /> SAVE CHANGES
+                     <MinecraftButton onClick={handleUpdate} variant="green" className="w-full">
+                        <div className="flex justify-center items-center gap-2">
+                            <Save size={16} /> 
+                            <span>SAVE CHANGES</span>
+                        </div>
                      </MinecraftButton>
                 ) : (
                     <>

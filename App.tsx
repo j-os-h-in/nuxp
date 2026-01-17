@@ -504,6 +504,7 @@ const App: React.FC = () => {
             'watch_performance': { x: 282, y: 382 },
             'tour_guide': { x: -482, y: 342 },
             'all_faculties': { x: 1000, y: 2000 },
+            'campus_explorer': { x: 1150, y: 2050 },
             'bus_master': { x: 0, y: 1050 },
             'marathon': { x: -80, y: 300 },
             'canteen_hopper': { x: 250, y: 620 },

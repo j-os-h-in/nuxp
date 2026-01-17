@@ -191,15 +191,17 @@ export const PendingInvitesModal: React.FC<Props> = ({ username, onClose, onAcce
                                                 onClick={() => handleAccept(invite)}
                                                 variant="green"
                                                 disabled={processingId === invite.id}
-                                                className="flex-1 flex items-center justify-center gap-2"
+                                                className="flex-1"
                                             >
                                                 {processingId === invite.id ? (
-                                                    <Loader2 size={16} className="animate-spin" />
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        <Loader2 size={16} className="animate-spin" />
+                                                    </div>
                                                 ) : (
-                                                    <>
+                                                    <div className="flex items-center justify-center gap-2">
                                                         <Check size={16} />
                                                         Accept
-                                                    </>
+                                                    </div>
                                                 )}
                                             </MinecraftButton>
                                         </div>
