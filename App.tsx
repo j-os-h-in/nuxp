@@ -23,6 +23,13 @@ import { log } from 'console';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabase = supabaseUrl ? createClient() : null;
 
+const getNUSSemesterText = (date: Date) => {
+    const month = date.getMonth() + 1; // 1-indexed
+    if (month >= 8 && month <= 12) return "Sem 1";
+    if (month >= 1 && month <= 5) return "Sem 2";
+    return "Special Term";
+};
+
 const Clock: React.FC = () => {
     const [time, setTime] = useState(new Date());
 
@@ -840,7 +847,7 @@ const App: React.FC = () => {
                 <div className="flex gap-3">
                     <div className="text-right hidden md:block space-y-0.5">
                         <p className="text-[10px] text-mc-gold uppercase tracking-widest opacity-100">Current Session</p>
-                        <p className="text-xl text-gray-200 tracking-wide leading-none">Year {user?.year}, Sem 1</p>
+                        <p className="text-xl text-gray-200 tracking-wide leading-none">Year {user?.year}, {getNUSSemesterText(new Date())}</p>
                         <Clock />
                     </div>
 
