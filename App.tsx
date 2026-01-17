@@ -47,8 +47,8 @@ const App: React.FC = () => {
   
   // 1. Check for existing session on mount
   useEffect(() => {
-    const checkSession = async () => {
-        const storedUser = await getStoredUser();
+    const checkSession = () => {
+        const storedUser = getStoredUser();
         if (storedUser) {
             handlePostLogin(storedUser);
         } else {
