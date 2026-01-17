@@ -29,23 +29,24 @@ export function SignUpForm({ className, onToggleView, ...props }: React.Componen
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const supabase = createClient()
 
   const handleSignUp = async (e: React.FormEvent) => {
-    const supabase = createClient()
     e.preventDefault()
+    setIsLoading(true)
     setError(null)
 
     if (password !== repeatPassword) {
       setError('Passwords do not match')
+      setIsLoading(false)
       return
     }
 
     if (!yearOfStudy || !degree) {
       setError('Please fill in all fields')
+      setIsLoading(false)
       return
     }
-
-    setIsLoading(true)
 
     try {
       // 1. Sign up the user
@@ -86,14 +87,18 @@ export function SignUpForm({ className, onToggleView, ...props }: React.Componen
       {success ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-2xl">Thank you for signing up!</CardTitle>
-            <CardDescription>Check your email to confirm</CardDescription>
+            <CardTitle className="text-3xl">Check your email</CardTitle>
+            <CardDescription className="text-xl">
+              We&apos;ve sent you a confirmation link
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">
-              You've successfully signed up. Please check your email to confirm your account before
-              signing in.
+            <p className="text-sm text-muted-foreground mb-4">
+              Please check your email to verify your account before signing in.
             </p>
+            <MinecraftButton onClick={onToggleView} className="w-full">
+              Back to Login
+            </MinecraftButton>
           </CardContent>
         </Card>
       ) : (
@@ -120,11 +125,11 @@ export function SignUpForm({ className, onToggleView, ...props }: React.Componen
 
                 <div className="grid gap-2">
                   <Label className="text-2xl" htmlFor="year">Year of Study</Label>
-                  <Select className="bg-black" value={yearOfStudy} onValueChange={setYearOfStudy} required>
+                  <Select value={yearOfStudy} onValueChange={setYearOfStudy} required>
                     <SelectTrigger className="!text-xl">
                       <SelectValue placeholder="Select your year" />
                     </SelectTrigger>
-                    <SelectContent className="bg-black">
+                    <SelectContent>
                       <SelectItem value="1">Year 1</SelectItem>
                       <SelectItem value="2">Year 2</SelectItem>
                       <SelectItem value="3">Year 3</SelectItem>
@@ -140,7 +145,7 @@ export function SignUpForm({ className, onToggleView, ...props }: React.Componen
                     <SelectTrigger className="!text-xl">
                       <SelectValue placeholder="Select your degree" />
                     </SelectTrigger>
-                    <SelectContent className="bg-black">
+                    <SelectContent>
                       <SelectItem value="Business Administration">Business Administration</SelectItem>
                       <SelectItem value="Business Analytics">Business Analytics</SelectItem>
                       <SelectItem value="Computer Science">Computer Science</SelectItem>
@@ -199,10 +204,7 @@ export function SignUpForm({ className, onToggleView, ...props }: React.Componen
                 </div>
 
                 <div className="grid gap-2">
-                  <div className="flex items-center">
-                    <Label
-                      className="text-2xl" htmlFor="password">Password</Label>
-                  </div>
+                  <Label className="text-2xl" htmlFor="password">Password</Label>
                   <Input
                     id="password"
                     type="password"
@@ -213,24 +215,24 @@ export function SignUpForm({ className, onToggleView, ...props }: React.Componen
                     onChange={(e) => setPassword(e.target.value)}
                   />
                 </div>
+
                 <div className="grid gap-2">
-                  <div className="flex items-center">
-                    <Label
-                      className="text-2xl" htmlFor="repeat-password">Repeat Password</Label>
-                  </div>
+                  <Label className="text-2xl" htmlFor="repeat-password">Repeat Password</Label>
                   <Input
                     id="repeat-password"
                     type="password"
+                    className="!text-xl"
+                    placeholder="quackers secret password!"
                     required
                     value={repeatPassword}
                     onChange={(e) => setRepeatPassword(e.target.value)}
-                    className="!text-xl"
-                    placeholder="quackers secret password!"
                   />
                 </div>
+
                 {error && <p className="text-sm text-red-500">{error}</p>}
+
                 <MinecraftButton type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? 'Creating an account...' : 'Sign Up'}
+                  {isLoading ? 'Creating account...' : 'Sign Up'}
                 </MinecraftButton>
               </div>
               <div className="mt-4 text-center text-lg">
