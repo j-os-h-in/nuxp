@@ -6,11 +6,11 @@ import { StatsDashboard } from './components/StatsDashboard';
 import { UserProgress, Achievement, User, Category } from './types';
 import { MinecraftButton } from './components/MinecraftButton';
 import { getPersonalizedTip } from './services/geminiService';
-import { LoginModal } from './components/LoginModal';
+import { LoginForm } from './src/components/login-form';
 import { loginUser, loadUserProgress, saveUserProgress, getStoredUser, logoutUser, updateUserAvatar } from './services/authService';
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from './src/lib/supabase/client';
 
-const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY);
+const supabase = createClient();
 
 const App: React.FC = () => {
     // --- Auth State ---
@@ -30,14 +30,51 @@ const App: React.FC = () => {
     const [startPan, setStartPan] = useState({ x: 0, y: 0 });
     const [scrollStart, setScrollStart] = useState({ left: 0, top: 0 });
 
-    // 1. Check for existing session on mount
+    // 1. Check for existing session on mount and listen to auth changes
     useEffect(() => {
-        const storedUser = getStoredUser();
-        if (storedUser) {
-            handlePostLogin(storedUser);
-        } else {
+        console.log('Checking auth session...');
+        // Check Supabase session
+        supabase.auth.getSession().then(({ data: { session }, error }) => {
+            console.log('Session check:', session, error);
+            if (session?.user) {
+                const email = session.user.email || 'user';
+                const username = email.split('@')[0];
+                handlePostLogin({
+                    username,
+                    avatarUrl: session.user.user_metadata?.avatar_url || 'https://api.dicebear.com/7.x/pixel-art/svg?seed=' + username,
+                    createdAt: Date.now()
+                });
+            } else {
+                const storedUser = getStoredUser();
+                if (storedUser) {
+                    handlePostLogin(storedUser);
+                } else {
+                    setIsAuthLoading(false);
+                }
+            }
+        }).catch(err => {
+            console.error('Auth error:', err);
             setIsAuthLoading(false);
-        }
+        });
+
+        // Listen for auth changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            if (session?.user) {
+                const email = session.user.email || 'user';
+                const username = email.split('@')[0];
+                handlePostLogin({
+                    username,
+                    avatarUrl: session.user.user_metadata?.avatar_url || 'https://api.dicebear.com/7.x/pixel-art/svg?seed=' + username,
+                    createdAt: Date.now()
+                });
+            } else {
+                setUser(null);
+                setProgress({ unlockedIds: ['nus_start'], totalXp: 0 });
+                setIsAuthLoading(false);
+            }
+        });
+
+        return () => subscription.unsubscribe();
     }, []);
 
     // 2. Load Data when User is set
@@ -220,8 +257,29 @@ const App: React.FC = () => {
 
     // --- RENDER ---
 
+    if (isAuthLoading) {
+        return (
+            <div className="min-h-screen w-full flex items-center justify-center bg-[#252525]">
+                <div className="text-center">
+                    <h1 className="text-4xl text-white font-bold mb-4 font-pixel">Loading...</h1>
+                    <div className="animate-pulse text-mc-yellow">Initializing NUS Craft</div>
+                </div>
+            </div>
+        );
+    }
+
     if (!user && !isAuthLoading) {
-        return <LoginModal onLogin={handleLogin} />;
+        return (
+            <div className="min-h-screen w-full flex items-center justify-center bg-[#252525] bg-stone bg-repeat">
+                <div className="w-full max-w-md px-4">
+                    <div className="text-center mb-8">
+                        <h1 className="text-6xl text-white font-bold drop-shadow-xl font-pixel">NUS CRAFT</h1>
+                        <p className="text-mc-yellow mt-2 text-xl font-pixel">Surviving the Bell Curve!</p>
+                    </div>
+                    <LoginForm />
+                </div>
+            </div>
+        );
     }
 
     return (

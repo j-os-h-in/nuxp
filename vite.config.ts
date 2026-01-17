@@ -17,10 +17,13 @@ export default defineConfig(({ mode }) => {
       "process.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY": JSON.stringify(
         env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY,
       ),
+      VITE_SUPABASE_PUBLISHABLE_OR_ANON_KEY: JSON.stringify(
+        env.VITE_SUPABASE_PUBLISHABLE_OR_ANON_KEY,
+      ),
     },
     resolve: {
       alias: {
-        "@": path.resolve(__dirname, "."),
+        "@": path.resolve(__dirname, "./src"),
       },
     },
   };
