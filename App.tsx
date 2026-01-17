@@ -514,7 +514,11 @@ const App: React.FC = () => {
 
             setPan({ x: newPanX, y: newPanY });
             setAchievementSearchQuery(''); // Close/Clear search
-            setSelectedAchievement(node); // Open modal
+            
+            // Wait for glide animation (700ms) to complete before opening modal
+            setTimeout(() => {
+                setSelectedAchievement(node); 
+            }, 750);
         }
     };
 
@@ -1097,7 +1101,13 @@ const App: React.FC = () => {
                                             />
                                             {/* Default title tooltip (hidden if proof is showing to avoid clutter, or kept for consistency) */}
                                             {!hoveredProof && (
-                                                <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-black/90 backdrop-blur text-mc-gold px-3 py-1 rounded-md text-xs opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20 border border-mc-gold/50 font-pixel tracking-wide shadow-[0_0_10px_rgba(0,0,0,1)] flex items-center gap-2">
+                                                <div 
+                                                    className="absolute -bottom-8 left-1/2 whitespace-nowrap bg-black/90 backdrop-blur text-mc-gold px-3 py-1 rounded-md text-xs opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20 border border-mc-gold/50 font-pixel tracking-wide shadow-[0_0_10px_rgba(0,0,0,1)] flex items-center gap-2"
+                                                    style={{ 
+                                                        transform: `translateX(-50%) scale(${Math.max(1, 1 / scale)})`, 
+                                                        transformOrigin: 'top center' 
+                                                    }}
+                                                >
                                                     {node.title}
                                                     {node.type === AchievementType.COOP && (
                                                         <span className="text-[9px] bg-purple-600 text-white px-1.5 py-0.5 rounded flex items-center gap-1">
