@@ -38,8 +38,8 @@
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/your-username/nus-digital-achievements.git
-   cd nus-digital-achievements
+   git clone 
+   cd 
    ```
 
 2. **Install dependencies**
@@ -69,7 +69,7 @@ This project was built with ❤️ (and caffeine) by:
 
 ## 🎮 How to Play
 
-1. **Login**: Enter a username and select/upload a pixel-art avatar.
+1. **Login**: Signup with an email and select/upload a pixel-art avatar.
 2. **Explore**: Drag and zoom around the map to find unlocked (colored) or locked (gray) achievements.
 3. **Unlock**: Click an achievement to view requirements.
    - **Task**: Click "Complete".
