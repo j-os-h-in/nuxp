@@ -407,80 +407,101 @@ const App: React.FC = () => {
         setSelectedAchievement(null);
     };
 
-    // --- HORIZONTAL TREE LAYOUT ALGORITHM ---
-    const { nodes, edges, startNodePos } = useMemo(() => {
+    // --- CLUSTER/CONSTELLATION LAYOUT ALGORITHM ---
+    const { nodes, edges, startNodePos, categoryCenters } = useMemo(() => {
         // 1. Initialize Nodes Map
         const nodeMap = new Map<string, any>();
         ACHIEVEMENTS.forEach(ach => {
-            nodeMap.set(ach.id, { ...ach, children: [], x: 0, y: 0, depth: 0 });
+            nodeMap.set(ach.id, { ...ach, x: 0, y: 0 });
         });
 
-        // 2. Build Hierarchy & Root Identification
-        let rootNode: any = null;
-        ACHIEVEMENTS.forEach(ach => {
-            const node = nodeMap.get(ach.id);
-            if (ach.type === 'ROOT') rootNode = node;
-
-            if (ach.parentId && nodeMap.has(ach.parentId)) {
-                nodeMap.get(ach.parentId).children.push(node);
-            }
-        });
-
-        // 3. Horizontal Tree Layout Algorithm
-        const HORIZONTAL_SPACING = 300; // X axis distance between levels
-        const VERTICAL_SPACING = 180;   // Y axis distance between leaf nodes
-
-        let currentLeafY = 0;
-
-        // Recursive function to layout nodes
-        const layoutNode = (node: any, depth: number) => {
-            node.x = depth * HORIZONTAL_SPACING;
-
-            if (node.children.length === 0) {
-                // It's a leaf node, assign it the next available Y slot
-                node.y = currentLeafY;
-                currentLeafY += VERTICAL_SPACING;
-            } else {
-                // It's a parent node, process all children first (Post-order traversal for Y)
-                node.children.forEach((child: any) => layoutNode(child, depth + 1));
-
-                // Place parent vertically centered relative to its children
-                const firstChildY = node.children[0].y;
-                const lastChildY = node.children[node.children.length - 1].y;
-                node.y = (firstChildY + lastChildY) / 2;
-            }
+        // 2. Define Category Regions (Galaxy Centers)
+        // Spread them out to avoid overlap between categories
+        const CATEGORY_CENTERS: Record<string, { x: number, y: number, radius: number, label: string }> = {
+            [Category.GENERAL]: { x: 0, y: 0, radius: 250, label: "STARTING POINT" },
+            [Category.ACADEMIC]: { x: -600, y: -500, radius: 450, label: "ACADEMIC DISTRICT" },
+            [Category.SOCIAL]: { x: 600, y: -500, radius: 450, label: "SOCIAL HUB" },
+            [Category.EXPLORATION]: { x: 0, y: 600, radius: 500, label: "THE WILDLANDS" },
         };
 
-        if (rootNode) {
-            // Start layout from root at depth 0
-            layoutNode(rootNode, 0);
-        }
+        // --- HARDCODED POSITIONS ---
+        // Manually customized to ensure no overlap and good distribution around centers
+        const HARDCODED_POSITIONS: Record<string, { x: number, y: number }> = {
+            // --- GENERAL (Center: 0, 0) ---
+            'nus_start': { x: 0, y: 0 },
 
-        const finalNodes = Array.from(nodeMap.values());
+            // --- ACADEMIC (Center: -600, -500) ---
+            'first_lecture': { x: -821, y: -382 },
+            'first_tutorial': { x: -432, y: -689 },
+            'library_scholar': { x: -954, y: -582 },
+            'study_session': { x: -378, y: -312 },
+            'seminar_sage': { x: -721, y: -843 },
+            'Competition_Challenger': { x: -882, y: -212 },
+            'all_nighter': { x: -312, y: -598 },
+            'first_exam': { x: -754, y: -421 },
+            'deans_list': { x: -1023, y: -712 },
+            'Mentor_Master': { x: -482, y: -892 },
 
-        // 4. Edges
-        const computedEdges: any[] = [];
-        finalNodes.forEach(node => {
-            if (node.parentId) {
-                const parent = nodeMap.get(node.parentId);
-                computedEdges.push({
-                    id: `${parent.id}-${node.id}`,
-                    sourceX: parent.x,
-                    sourceY: parent.y,
-                    targetX: node.x,
-                    targetY: node.y,
-                    targetId: node.id,
-                    sourceCategory: parent.category,
-                    targetCategory: node.category,
-                    sourceId: parent.id
-                });
+            // --- SOCIAL (Center: 600, -500) ---
+            'orientation': { x: 600, y: -200 },
+            'supper_jio': { x: 432, y: -689 },
+            'hall_stay': { x: 954, y: -582 },
+            'cc_activity': { x: 378, y: -312 },
+            'club_event': { x: 721, y: -843 },
+            'exco_member': { x: 882, y: -212 },
+            'networker': { x: 312, y: -598 },
+            'pair_programming': { x: 754, y: -421 },
+            'class_friend': { x: 1023, y: -712 },
+            'cross_faculty_friend': { x: 482, y: -892 },
+            'IFG': { x: 650, y: -750 },
+
+            // --- EXPLORATION (Center: 0, 600) ---
+            'utown_visit': { x: -212, y: 432 },
+            'museum_visit': { x: 342, y: 482 },
+            'gym_visit': { x: -312, y: 854 },
+            'pool_visit': { x: 421, y: 792 },
+            'pgp_mala': { x: -454, y: 582 },
+            'chick_visit': { x: 189, y: 921 },
+            'merch_collector': { x: -378, y: 712 },
+            'watch_performance': { x: 282, y: 382 },
+            'tour_guide': { x: -482, y: 342 },
+            'all_faculties': { x: 454, y: 954 },
+            'bus_master': { x: 0, y: 1050 },
+            'marathon': { x: -80, y: 300 },
+            'canteen_hopper': { x: 250, y: 620 },
+        };
+
+        const finalNodes: any[] = [];
+        
+        ACHIEVEMENTS.forEach(ach => {
+            const node = nodeMap.get(ach.id);
+            const pos = HARDCODED_POSITIONS[ach.id];
+
+            if (pos) {
+                node.x = pos.x;
+                node.y = pos.y;
+            } else {
+                // Fallback for new achievements not yet hardcoded
+                // Place effectively near their category center
+                const region = CATEGORY_CENTERS[ach.category];
+                if (region) {
+                   node.x = region.x + (Math.random() * 200 - 100);
+                   node.y = region.y + (Math.random() * 200 - 100);
+                }
             }
+            finalNodes.push(node);
         });
+
+        // 4. Edges - REMOVED for clean floating look (requested by user)
+        const computedEdges: any[] = [];
+
+        const rootNode = nodeMap.get('nus_start'); // Assuming 'nus_start' is id or find type ROOT
 
         return {
             nodes: finalNodes,
             edges: computedEdges,
-            startNodePos: rootNode ? { x: rootNode.x, y: rootNode.y } : { x: 0, y: 0 }
+            startNodePos: rootNode ? { x: rootNode.x, y: rootNode.y } : { x: 0, y: 0 },
+            categoryCenters: CATEGORY_CENTERS
         };
 
     }, []);
@@ -1003,45 +1024,22 @@ const App: React.FC = () => {
                                 transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
                             }}
                         >
-                            {/* 1. Connections Layer */}
-                            <svg
-                                className="absolute overflow-visible pointer-events-none"
-                                style={{ top: 0, left: 0, width: 1, height: 1 }}
-                            >
-                                {edges.map(edge => {
-                                    if (filterCategory !== 'ALL' && (edge.sourceCategory !== filterCategory || edge.targetCategory !== filterCategory)) {
-                                        return null;
-                                    }
-                                    const isSourceUnlocked = displayProgress.unlockedIds.includes(edge.sourceId);
-                                    const isTargetUnlocked = displayProgress.unlockedIds.includes(edge.targetId);
-
-                                    // Visual: Only light up Gold if BOTH ends are unlocked
-                                    const isPathActive = isSourceUnlocked && isTargetUnlocked;
-                                    const isPathVisible = isSourceUnlocked; // If source is unlocked, we see the path faintly
-
-                                    const ICON_OFFSET = 40;
-                                    const startX = edge.sourceX + 100 + 80;
-                                    const startY = edge.sourceY + ICON_OFFSET + 100;
-                                    const endX = edge.targetX + 100;
-                                    const endY = edge.targetY + ICON_OFFSET + 100;
-
-                                    // Orthogonal routing: horizontal → vertical → horizontal (L-shape)
-                                    const midX = (startX + endX) / 2;
-                                    const pathData = `M ${startX} ${startY} H ${midX} V ${endY} H ${endX}`;
-
-                                    return (
-                                        <path
-                                            key={edge.id}
-                                            d={pathData}
-                                            stroke={isPathActive ? "#D4AF37" : (isPathVisible ? "#404040" : "#222")}
-                                            strokeWidth={isPathActive ? "6" : "3"}
-                                            fill="none"
-                                            strokeDasharray={isPathActive ? "none" : "10,5"}
-                                            className={`transition-all duration-500 ${isPathActive ? 'drop-shadow-[0_0_8px_rgba(212,175,55,0.8)] opacity-100' : (isPathVisible ? 'opacity-40' : 'opacity-10')}`}
-                                        />
-                                    );
-                                })}
-                            </svg>
+                            {/* 1. Category Labels Layer */}
+                            {Object.values(categoryCenters).map((center: any) => (
+                                <div
+                                    key={center.label}
+                                    className="absolute transform -translate-x-1/2 -translate-y-1/2 pointer-events-none z-0"
+                                    style={{
+                                        left: `${center.x + 100}px`,
+                                        top: `${center.y + 100}px`,
+                                        width: '400px'
+                                    }}
+                                >
+                                    <h2 className="text-3xl font-bold text-white/20 tracking-[0.5em] text-center font-pixel whitespace-nowrap uppercase drop-shadow-md">
+                                        {center.label}
+                                    </h2>
+                                </div>
+                            ))}
 
                             {/* 2. Nodes Layer */}
                             {nodes.map(node => {
