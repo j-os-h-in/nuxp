@@ -213,7 +213,7 @@ export const LoginModal: React.FC<Props> = ({ onLogin }) => {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950 bg-grid-pattern overflow-y-auto my-6 animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950 bg-grid-pattern overflow-y-auto my-6 mx-5 animate-in fade-in duration-300">
             <style>{`
         @keyframes shake {
             0%, 100% { transform: translateX(0); }
@@ -253,6 +253,32 @@ export const LoginModal: React.FC<Props> = ({ onLogin }) => {
                             </>
                         )}
                     </div>
+
+                    {(mode === 'login') && (
+                        <div className="flex flex-col items-center">
+                            <div className="relative group cursor-pointer">
+                                {/* Student on top */}
+                                <img
+                                    src="public/student.gif"
+                                    alt="Mascot Waving"
+                                    className="relative z-10"
+                                />
+                                {/* Another quackers on the right side */}
+                                <img
+                                    src="public/quackers.png"
+                                    alt="Quackers"
+                                    className="absolute top-20 left-40 h-8 w-8 sm:h-14 sm:w-14 transition-all duration-700 
+                                    rotate-45
+                                    ease-out 
+                                    transform 
+                                    translate-x-4 translate-y-2  
+                                    group-hover:translate-x-8
+                                    sm:group-hover:translate-x-12 group-hover:translate-y-0 z-0"
+                                    style={{ transitionDelay: '100ms' }}
+                                />
+                            </div>
+                        </div>
+                    )}
 
                     <form onSubmit={handleSupabaseAuth} className="space-y-6">
                         {/* Email & Password (for login/signup modes) */}
