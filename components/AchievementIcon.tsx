@@ -109,7 +109,16 @@ export const AchievementIcon: React.FC<Props> = ({ iconName, type, category, unl
                                         }}
                                         className="transition-all duration-300"
                                     />
-                                ) : null}
+                                ) : (
+                                    <LucideIcon 
+                                        size={size} 
+                                        color={unlocked ? 'white' : '#a1a1aa'} 
+                                        className={`transition-all duration-300 ${unlocked ? 'drop-shadow-md' : 'opacity-60'}`}
+                                        style={{
+                                            filter: unlocked ? 'drop-shadow(2px 2px 0px rgba(0,0,0,0.6))' : 'drop-shadow(2px 2px 0px rgba(0,0,0,0.3))'
+                                        }}
+                                    />
+                                )}
                             </div>
                         </CardItem>
                     </div>
