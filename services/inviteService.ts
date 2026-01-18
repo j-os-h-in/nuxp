@@ -7,7 +7,7 @@ const supabase = supabaseUrl ? createClient() : null;
 
 // Feature flag to disable Supabase invites if table doesn't exist
 // Set to false if you haven't created the coop_invites table yet
-const USE_SUPABASE_INVITES = false;
+const USE_SUPABASE_INVITES = true;
 
 const INVITES_STORAGE_KEY = "nus_mc_invites";
 
